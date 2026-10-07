@@ -1,0 +1,6 @@
+services:
+  congthongtinf.api:
+    image: ${DOCKER_REGISTRY-}congthongtinfapi
+    build:
+      context: .
+      dockerfile: congThongTinf.API/Dockerfile

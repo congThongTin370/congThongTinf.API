@@ -3,4 +3,7 @@
   <Project Path="congThongTinf.Infrastructure/congThongTinf.Infrastructure.csproj" Id="f657b387-46d2-4164-a9ad-75ad4aa52673" />
   <Project Path="congThongTinf.Repository/congThongTinf.Domain.csproj" Id="cac58cb4-1f4e-4bd7-940b-78c0adaf0a29" />
   <Project Path="congThongTinf.Service/congThongTinf.Service.csproj" Id="d124427a-730e-4697-a7cd-0dc750810972" />
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
 </Solution>
