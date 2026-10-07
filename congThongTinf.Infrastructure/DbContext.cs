@@ -4,7 +4,7 @@ using System.Text;
 
 namespace congThongTinf.Infrastructure
 {
-    internal class DbContext
+    public class DbContext
     {
     }
 }

@@ -13,6 +13,21 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+app.UseCors("AllowFrontend");
+
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "congThongTinf API v1");
+        c.RoutePrefix = string.Empty;
+        //c.HeadContent = $"<style>{SwaggerTheme.GetSwaggerThemeCss(Theme.OneDark)}</style>";
+        c.ConfigObject.AdditionalItems.Add("persistAuthorization", "true");
+        c.InjectJavascript("/custom-swagger.js");
+        // c.InjectStylesheet("/custom-swagger.css");
+    });
+}
 
 app.UseHttpsRedirection();
 

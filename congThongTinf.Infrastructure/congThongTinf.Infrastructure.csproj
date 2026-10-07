@@ -10,4 +10,8 @@
     <Folder Include="Entities\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\congThongTinf.Repository\congThongTinf.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\congThongTinf.Infrastructure\congThongTinf.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
