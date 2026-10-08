@@ -13,7 +13,9 @@ public class News : BaseEntity
 
     public string? CoverImageUrl { get; set; }
 
-    public string Category { get; set; } = string.Empty;
+    public Guid CategoryId { get; set; }
+
+    public Category? Category { get; set; }
 
     public Guid AuthorId { get; set; }
 

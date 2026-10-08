@@ -1,4 +1,6 @@
-﻿using congThongTinf.Infrastructure;
+﻿using congThongTinf.Domain;
+using congThongTinf.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace congThongTinf.API.Architecture;
 
@@ -6,20 +8,20 @@ public static class MigrationExtensions
 {
     public static void ApplyMigrations(this IApplicationBuilder app, ILogger _logger)
     {
-        //try
-        //{
-        //    _logger.LogInformation("Applying migrations...");
-        //    using var scope = app.ApplicationServices.CreateScope();
+        try
+        {
+            _logger.LogInformation("Applying migrations...");
+            using var scope = app.ApplicationServices.CreateScope();
 
-        //    using var dbContext =
-        //        scope.ServiceProvider.GetRequiredService<DbContext>();
+            using var dbContext =
+                scope.ServiceProvider.GetRequiredService<congThongTinfDbContext>();
 
-        //    dbContext.Database.Migrate();
-        //    _logger.LogInformation("Migrations applied successfully!");
-        //}
-        //catch (Exception e)
-        //{
-        //    _logger.LogError(e, "An problem occurred during migration!");
-        //}
+            dbContext.Database.Migrate();
+            _logger.LogInformation("Migrations applied successfully!");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An problem occurred during migration!");
+        }
     }
 }

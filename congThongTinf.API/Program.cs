@@ -35,6 +35,15 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 }
 
 
+try
+{
+    app.ApplyMigrations(app.Logger);
+}
+catch (Exception e)
+{
+    app.Logger.LogError(e, "An problem occurred during migration!");
+}
+
 app.UseAuthorization();
 
 app.MapControllers();

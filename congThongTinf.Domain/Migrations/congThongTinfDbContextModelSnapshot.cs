@@ -22,7 +22,44 @@ namespace congThongTinf.Domain.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.Document", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Category", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Categories");
+                });
+
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -74,7 +111,7 @@ namespace congThongTinf.Domain.Migrations
                     b.ToTable("Documents");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.News", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.News", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -83,10 +120,8 @@ namespace congThongTinf.Domain.Migrations
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -124,10 +159,12 @@ namespace congThongTinf.Domain.Migrations
 
                     b.HasIndex("AuthorId");
 
+                    b.HasIndex("CategoryId");
+
                     b.ToTable("News");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.Role", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -154,7 +191,7 @@ namespace congThongTinf.Domain.Migrations
                     b.ToTable("Roles");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.User", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -201,9 +238,9 @@ namespace congThongTinf.Domain.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.Document", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Document", b =>
                 {
-                    b.HasOne("congThongTinf.Repository.Entities.User", "UploadedByUser")
+                    b.HasOne("congThongTinf.Domain.Entities.User", "UploadedByUser")
                         .WithMany()
                         .HasForeignKey("UploadedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -212,20 +249,28 @@ namespace congThongTinf.Domain.Migrations
                     b.Navigation("UploadedByUser");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.News", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.News", b =>
                 {
-                    b.HasOne("congThongTinf.Repository.Entities.User", "Author")
+                    b.HasOne("congThongTinf.Domain.Entities.User", "Author")
                         .WithMany("Articles")
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("congThongTinf.Domain.Entities.Category", "Category")
+                        .WithMany("Articles")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Author");
+
+                    b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.User", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.User", b =>
                 {
-                    b.HasOne("congThongTinf.Repository.Entities.Role", "Role")
+                    b.HasOne("congThongTinf.Domain.Entities.Role", "Role")
                         .WithMany("Users")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -234,12 +279,17 @@ namespace congThongTinf.Domain.Migrations
                     b.Navigation("Role");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.Role", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Category", b =>
+                {
+                    b.Navigation("Articles");
+                });
+
+            modelBuilder.Entity("congThongTinf.Domain.Entities.Role", b =>
                 {
                     b.Navigation("Users");
                 });
 
-            modelBuilder.Entity("congThongTinf.Repository.Entities.User", b =>
+            modelBuilder.Entity("congThongTinf.Domain.Entities.User", b =>
                 {
                     b.Navigation("Articles");
                 });

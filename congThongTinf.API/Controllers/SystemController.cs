@@ -1,4 +1,6 @@
 ﻿using congThongTinf.Domain;
+using congThongTinf.Domain.Entities;
+using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,12 +28,11 @@ namespace congThongTinf.API.Controllers
             {
                 await ClearDatabase(_context);
 
-                // Seed data
-                //await SeedRolesAndUsers();
-                //await SeedCategories();
+                var seededCount = await SeedNews();
                 return Ok(ApiResult<object>.Success(new
                 {
-                    Message = "Data seeded successfully."
+                    Message = "Data seeded successfully.",
+                    NewsCount = seededCount
                 }));
             }
             catch (DbUpdateException dbEx)
@@ -59,14 +60,12 @@ namespace congThongTinf.API.Controllers
                     _logger.Info("Bắt đầu xóa dữ liệu trong database...");
 
                     var tablesToDelete = new List<Func<Task>>
-                {
-                   
-
-                    () => context.Users.ExecuteDeleteAsync(),
-                    () => context.Roles.ExecuteDeleteAsync(),
-                    () => context.Documents.ExecuteDeleteAsync(),
-                    () => context.News.ExecuteDeleteAsync(),
-                };
+                    {
+                        () => context.News.ExecuteDeleteAsync(),
+                        () => context.Documents.ExecuteDeleteAsync(),
+                        () => context.Users.ExecuteDeleteAsync(),
+                        () => context.Roles.ExecuteDeleteAsync(),
+                    };
 
                     foreach (var deleteFunc in tablesToDelete)
                         await deleteFunc();
@@ -82,6 +81,150 @@ namespace congThongTinf.API.Controllers
                     throw;
                 }
             });
+        }
+
+        private async Task<int> SeedNews()
+        {
+            var now = DateTime.UtcNow;
+            var categories = await EnsureCategories(now);
+            var authorId = await EnsureJournalist(now);
+
+            var articles = new List<News>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Sư đoàn 370 tổ chức hội nghị giao ban tháng 10",
+                    Summary = "Các đơn vị báo cáo kết quả huấn luyện, sẵn sàng chiến đấu và công tác bảo đảm trong tháng.",
+                    Content = "Sáng ngày 8/10, Sư đoàn Không quân 370 tổ chức hội nghị giao ban tháng. Chỉ huy các đơn vị đã báo cáo tiến độ huấn luyện bay, công tác kỹ thuật và bảo đảm hậu cần. Hội nghị thống nhất kế hoạch duy trì sẵn sàng chiến đấu trong quý IV.",
+                    CategoryId = categories["Tin tức đơn vị"],
+                    AuthorId = authorId,
+                    Status = NewsStatus.Published,
+                    PublishedAt = now.AddDays(-2),
+                    ViewCount = 48,
+                    CreatedAt = now.AddDays(-3),
+                    UpdatedAt = now.AddDays(-2)
+                },
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Trung đoàn hoàn thành đợt bay huấn luyện đêm",
+                    Summary = "Phi công và tổ bay hoàn thành đủ giáo án bay đêm trong điều kiện thời tiết phức tạp.",
+                    Content = "Trong ba ngày vừa qua, Trung đoàn đã tổ chức bay huấn luyện đêm theo đúng kế hoạch. Các tổ bay bảo đảm an toàn tuyệt đối, hoàn thành nội dung cất cánh, tiếp cận và hạ cánh trong điều kiện tầm nhìn hạn chế.",
+                    CategoryId = categories["Huấn luyện"],
+                    AuthorId = authorId,
+                    Status = NewsStatus.Published,
+                    PublishedAt = now.AddDays(-1),
+                    ViewCount = 31,
+                    CreatedAt = now.AddDays(-2),
+                    UpdatedAt = now.AddDays(-1)
+                },
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Sinh hoạt chính trị chủ đề truyền thống Sư đoàn",
+                    Summary = "Cán bộ, chiến sĩ ôn lại truyền thống chiến đấu và những tấm gương điển hình của đơn vị.",
+                    Content = "Buổi sinh hoạt chính trị được tổ chức tại hội trường sư đoàn, với nội dung ôn lại chặng đường xây dựng, chiến đấu và trưởng thành. Các đại biểu đã trao đổi về việc giữ vững bản lĩnh chính trị trong tình hình mới.",
+                    CategoryId = categories["Chính trị"],
+                    AuthorId = authorId,
+                    Status = NewsStatus.Pending,
+                    ViewCount = 0,
+                    CreatedAt = now.AddHours(-8),
+                    UpdatedAt = now.AddHours(-6)
+                },
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
+                    Summary = "Dự thảo kế hoạch kiểm tra bảo dưỡng máy bay và trang bị mặt đất trong tháng tới.",
+                    Content = "Ban Kỹ thuật đang hoàn thiện kế hoạch kiểm tra định kỳ trang bị kỹ thuật hàng không. Nội dung dự kiến gồm bảo dưỡng định kỳ, kiểm tra sổ sách và rà soát vật tư dự trữ.",
+                    CategoryId = categories["Tin tức đơn vị"],
+                    AuthorId = authorId,
+                    Status = NewsStatus.Draft,
+                    ViewCount = 0,
+                    CreatedAt = now.AddHours(-3),
+                    UpdatedAt = now.AddHours(-1)
+                }
+            };
+
+            await _context.News.AddRangeAsync(articles);
+            await _context.SaveChangesAsync();
+            _logger.Success($"Đã seed {articles.Count} bài viết.");
+            return articles.Count;
+        }
+
+        private async Task<Dictionary<string, Guid>> EnsureCategories(DateTime now)
+        {
+            var names = new (string Name, string Description, int Order)[]
+            {
+                ("Tin tức đơn vị", "Tin hoạt động của Sư đoàn Không quân 370", 1),
+                ("Huấn luyện", "Tin huấn luyện bay và sẵn sàng chiến đấu", 2),
+                ("Chính trị", "Công tác đảng, công tác chính trị", 3)
+            };
+
+            var categoryNames = names.Select(n => n.Name).ToArray();
+            var existing = await _context.Categories
+                .Where(c => categoryNames.Contains(c.Name))
+                .ToListAsync();
+
+            foreach (var item in names)
+            {
+                if (existing.Any(c => c.Name == item.Name))
+                    continue;
+
+                var category = new Category
+                {
+                    Id = Guid.NewGuid(),
+                    Name = item.Name,
+                    Description = item.Description,
+                    DisplayOrder = item.Order,
+                    IsActive = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _context.Categories.Add(category);
+                existing.Add(category);
+            }
+
+            await _context.SaveChangesAsync();
+            return existing.ToDictionary(c => c.Name, c => c.Id);
+        }
+
+        private async Task<Guid> EnsureJournalist(DateTime now)
+        {
+            var author = await _context.Users.FirstOrDefaultAsync();
+            if (author != null)
+                return author.Id;
+
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Journalist");
+            if (role == null)
+            {
+                role = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Journalist",
+                    Description = "Biên tập viên tin tức nội bộ",
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                _context.Roles.Add(role);
+            }
+
+            author = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "journalist",
+                Email = "journalist@370.local",
+                PasswordHash = new PasswordHasher().HashPassword("Journalist@123") ?? string.Empty,
+                FullName = "Phóng viên Sư đoàn",
+                RoleId = role.Id,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            _context.Users.Add(author);
+            await _context.SaveChangesAsync();
+            return author.Id;
         }
 
     }

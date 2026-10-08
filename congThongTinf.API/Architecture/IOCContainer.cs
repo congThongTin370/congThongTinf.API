@@ -16,7 +16,7 @@ public static class IocContainer
     public static IServiceCollection SetupIocContainer(this IServiceCollection services)
     {
         //Add Logger
-        //services.AddScoped<ILoggerService, LoggerService>();
+        services.AddScoped<ILoggerService, LoggerService>();
 
         //Add Project Services
         services.SetupDbContext();

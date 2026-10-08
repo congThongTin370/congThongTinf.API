@@ -13,7 +13,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
 
       # PostgreSQL
-      - ConnectionStrings__DefaultConnection=Host=congthongtinf.database;Port=5432;Database=CongThongTinFDB;Username=postgres;Password=postgres;Timeout=300;CommandTimeout=300
+      - ConnectionStrings__DefaultConnection=Host=congthongtinf.database;Port=5432;Database=CongThongTinfDB;Username=postgres;Password=postgres;Timeout=300;CommandTimeout=300
 
       # Redis
       - ConnectionStrings__Redis=redis:6379,abortConnect=false
