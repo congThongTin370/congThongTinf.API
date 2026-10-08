@@ -196,6 +196,7 @@ public static class IocContainer
             .AddJwtBearer(x =>
             {
                 x.SaveToken = true;
+                x.MapInboundClaims = true;
                 x.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -206,7 +207,8 @@ public static class IocContainer
                     IssuerSigningKey =
                         new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:SecretKey"] ??
                                                                         throw new InvalidOperationException())),
-                    NameClaimType = ClaimTypes.NameIdentifier
+                    NameClaimType = ClaimTypes.NameIdentifier,
+                    RoleClaimType = ClaimTypes.Role
                 };
                 x.Events = new JwtBearerEvents
                 {

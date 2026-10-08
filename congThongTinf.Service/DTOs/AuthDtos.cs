@@ -1,4 +1,5 @@
 using congThongTinf.Domain.Entities;
+using System.ComponentModel;
 
 namespace congThongTinf.Service.DTOs;
 
@@ -15,8 +16,9 @@ public class CreateJournalistUserDto
 
 public class LoginRequestDto
 {
+    [DefaultValue("admin@370.local")]
     public string Email { get; set; } = string.Empty;
-
+    [DefaultValue("Admin@123")]
     public string Password { get; set; } = string.Empty;
 }
 
