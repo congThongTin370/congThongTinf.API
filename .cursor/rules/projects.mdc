@@ -1,0 +1,42 @@
+---
+description: Project-wide development rules
+alwaysApply: true
+---
+
+# Project Rules
+
+## Stack
+
+- ASP.NET Core 10
+- C#
+- PostgreSQL
+- Redis
+- Docker
+- DDD / layered architecture
+- ASP.NET Core MVC + Razor for frontend
+
+## Architecture
+
+- Keep business logic out of Controllers.
+- Follow existing DDD boundaries and project structure.
+- Domain must not depend on Infrastructure or API.
+- Do not introduce a new architecture or framework unless explicitly requested.
+- Reuse existing patterns before creating new abstractions.
+
+## Frontend
+
+- Use ASP.NET MVC + Razor Views.
+- Keep UI simple and suitable for an internal news portal MVP.
+- Prefer server-side rendering.
+- Keep JavaScript minimal.
+- Reuse existing CSS/components.
+- Do not introduce React/Vue/Angular.
+
+## Development
+
+- Inspect existing code before implementing.
+- Modify only files necessary for the task.
+- Do not rewrite working code unnecessarily.
+- Do not add dependencies without a clear reason.
+- Follow existing naming and coding conventions.
+- For large changes, explain the implementation plan before modifying code.
