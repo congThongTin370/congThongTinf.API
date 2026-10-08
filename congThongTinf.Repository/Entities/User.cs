@@ -1,4 +1,4 @@
-namespace congThongTinf.Repository.Entities;
+namespace congThongTinf.Domain.Entities;
 
 /// <summary>
 /// Represents a user account in the system (Admin or Journalist)

@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using congThongTinf.Repository.Entities;
+using congThongTinf.Domain.Entities;
 
-namespace congThongTinf.Repository;
+namespace congThongTinf.Domain;
 
 public class congThongTinfDbContext : DbContext
 {

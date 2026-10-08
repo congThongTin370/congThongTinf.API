@@ -1,7 +1,6 @@
-﻿
-using congThongTinf.Infrastructure;
+﻿using congThongTinf.Infrastructure;
 
-namespace BlindTreasure.API.Architecture;
+namespace congThongTinf.API.Architecture;
 
 public static class MigrationExtensions
 {

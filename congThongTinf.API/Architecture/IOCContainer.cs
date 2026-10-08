@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 
 
-namespace BlindTreasure.API.Architecture;
+namespace congThongTinf.API.Architecture;
 
 public static class IocContainer
 {
