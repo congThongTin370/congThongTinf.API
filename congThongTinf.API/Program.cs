@@ -44,6 +44,7 @@ catch (Exception e)
     app.Logger.LogError(e, "An problem occurred during migration!");
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

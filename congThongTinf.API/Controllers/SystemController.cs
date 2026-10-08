@@ -28,10 +28,13 @@ namespace congThongTinf.API.Controllers
             {
                 await ClearDatabase(_context);
 
+                var seededUsersRoles = await SeedUsersRoles();
                 var seededCount = await SeedNews();
                 return Ok(ApiResult<object>.Success(new
                 {
                     Message = "Data seeded successfully.",
+                    RoleCount = seededUsersRoles.RoleCount,
+                    AdminCount = seededUsersRoles.AdminCount,
                     NewsCount = seededCount
                 }));
             }
@@ -44,6 +47,78 @@ namespace congThongTinf.API.Controllers
             {
                 _logger.Error($"General error: {ex.Message}");
                 return StatusCode(500, "Error seeding data: General failure.");
+            }
+        }
+
+        [HttpPost("seed-users-roles")]
+        public async Task<IActionResult> SeedUsersRolesData()
+        {
+            try
+            {
+                var seeded = await SeedUsersRoles();
+                return Ok(ApiResult<object>.Success(new
+                {
+                    Message = "Roles and admin accounts seeded successfully.",
+                    RoleCount = seeded.RoleCount,
+                    AdminCount = seeded.AdminCount
+                }));
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.Error($"Database update error: {dbEx.Message}");
+                return StatusCode(500, "Error seeding roles: Database issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"General error: {ex.Message}");
+                return StatusCode(500, "Error seeding roles: General failure.");
+            }
+        }
+
+        [HttpPost("seed-news")]
+        public async Task<IActionResult> SeedNewsData()
+        {
+            try
+            {
+                var seededCount = await SeedNews();
+                return Ok(ApiResult<object>.Success(new
+                {
+                    Message = "News seeded successfully.",
+                    NewsCount = seededCount
+                }));
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.Error($"Database update error: {dbEx.Message}");
+                return StatusCode(500, "Error seeding news: Database issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"General error: {ex.Message}");
+                return StatusCode(500, "Error seeding news: General failure.");
+            }
+        }
+
+        [HttpPost("clear-database")]
+        public async Task<IActionResult> ClearDatabaseData()
+        {
+            try
+            {
+                await ClearDatabase(_context);
+                return Ok(ApiResult<object>.Success(new
+                {
+                    Message = "Database cleared successfully."
+                }));
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.Error($"Database update error: {dbEx.Message}");
+                return StatusCode(500, "Error clearing database: Database issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"General error: {ex.Message}");
+                return StatusCode(500, "Error clearing database: General failure.");
             }
         }
 
@@ -65,6 +140,7 @@ namespace congThongTinf.API.Controllers
                         () => context.Documents.ExecuteDeleteAsync(),
                         () => context.Users.ExecuteDeleteAsync(),
                         () => context.Roles.ExecuteDeleteAsync(),
+                        () => context.Categories.ExecuteDeleteAsync(),
                     };
 
                     foreach (var deleteFunc in tablesToDelete)
@@ -81,6 +157,83 @@ namespace congThongTinf.API.Controllers
                     throw;
                 }
             });
+        }
+
+        private async Task<(int RoleCount, int AdminCount)> SeedUsersRoles()
+        {
+            var now = DateTime.UtcNow;
+            var roles = new (RoleType Name, string Description)[]
+            {
+                (RoleType.Admin, "Xem thống kê, quản lý tài khoản và vai trò, quản lý văn bản nội bộ."),
+                (RoleType.Journalist, "Tạo, sửa, xuất bản và quản lý bài viết của mình.")
+            };
+
+            var names = roles.Select(r => r.Name).ToArray();
+            var existing = await _context.Roles
+                .Where(r => names.Contains(r.Name))
+                .Select(r => r.Name)
+                .ToListAsync();
+
+            var addedRoles = 0;
+            foreach (var item in roles)
+            {
+                if (existing.Contains(item.Name))
+                    continue;
+
+                _context.Roles.Add(new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = item.Name,
+                    Description = item.Description,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                addedRoles++;
+            }
+
+            if (addedRoles > 0)
+                await _context.SaveChangesAsync();
+
+            var adminRole = await _context.Roles.FirstAsync(r => r.Name == RoleType.Admin);
+            var admins = new (string Username, string Email, string FullName)[]
+            {
+                ("admin", "admin@370.local", "Quản trị viên 1"),
+                ("admin2", "admin2@370.local", "Quản trị viên 2")
+            };
+
+            var emails = admins.Select(a => a.Email).ToArray();
+            var existingEmails = await _context.Users
+                .Where(u => emails.Contains(u.Email))
+                .Select(u => u.Email)
+                .ToListAsync();
+
+            var hasher = new PasswordHasher();
+            var addedAdmins = 0;
+            foreach (var item in admins)
+            {
+                if (existingEmails.Contains(item.Email))
+                    continue;
+
+                _context.Users.Add(new User
+                {
+                    Id = Guid.NewGuid(),
+                    Username = item.Username,
+                    Email = item.Email,
+                    PasswordHash = hasher.HashPassword("Admin@123") ?? string.Empty,
+                    FullName = item.FullName,
+                    RoleId = adminRole.Id,
+                    IsActive = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                addedAdmins++;
+            }
+
+            if (addedAdmins > 0)
+                await _context.SaveChangesAsync();
+
+            _logger.Success($"Đã seed {addedRoles} vai trò và {addedAdmins} tài khoản admin.");
+            return (addedRoles, addedAdmins);
         }
 
         private async Task<int> SeedNews()
@@ -196,13 +349,13 @@ namespace congThongTinf.API.Controllers
             if (author != null)
                 return author.Id;
 
-            var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Journalist");
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == RoleType.Journalist);
             if (role == null)
             {
                 role = new Role
                 {
                     Id = Guid.NewGuid(),
-                    Name = "Journalist",
+                    Name = RoleType.Journalist,
                     Description = "Biên tập viên tin tức nội bộ",
                     CreatedAt = now,
                     UpdatedAt = now

@@ -1,4 +1,8 @@
 ﻿using congThongTinf.Domain;
+using congThongTinf.Infrastructure.Commons;
+using congThongTinf.Infrastructure.Interfaces;
+using congThongTinf.Service.Interfaces;
+using congThongTinf.Service.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -27,7 +31,7 @@ public static class IocContainer
         //Add business services
         services.SetupBusinessServicesLayer();
 
-        //services.SetupJwt();
+        services.SetupJwt();
 
         // services.SetupGraphQl();
         //services.SetupReSendService();
@@ -117,16 +121,9 @@ public static class IocContainer
 
     public static IServiceCollection SetupBusinessServicesLayer(this IServiceCollection services)
     {
-        // services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-
-        // Add application services
-
-        //services.AddScoped<IAuthService, AuthService>();
-        //services.AddScoped<ILoggerService, LoggerService>();
-        //services.AddScoped<IMapperService, MapperService>();
-        //services.AddScoped<ICurrentTime, CurrentTime>();
-        //services.AddScoped<IClaimsService, ClaimsService>();
-        //services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IClaimsService, ClaimsService>();
 
         services.AddHttpContextAccessor();
 

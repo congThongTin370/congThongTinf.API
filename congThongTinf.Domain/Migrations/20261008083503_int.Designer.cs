@@ -12,8 +12,8 @@ using congThongTinf.Domain;
 namespace congThongTinf.Domain.Migrations
 {
     [DbContext(typeof(congThongTinfDbContext))]
-    [Migration("20261008080330_init")]
-    partial class init
+    [Migration("20261008083503_int")]
+    partial class @int
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -181,15 +181,16 @@ namespace congThongTinf.Domain.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<int>("Name")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("Roles");
                 });

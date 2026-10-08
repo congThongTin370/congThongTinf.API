@@ -1,5 +1,5 @@
 ﻿using congThongTinf.Domain;
-using Microsoft.EntityFrameworkCore;
+using congThongTinf.Domain.Entities;
 using Microsoft.EntityFrameworkCore.Storage;
 
 
@@ -10,14 +10,18 @@ public class UnitOfWork : IUnitOfWork
 
     public UnitOfWork(
         congThongTinfDbContext dbContext,
-        
         IDbContextTransaction? transaction = null
     )
     {
         _dbContext = dbContext;
         _transaction = transaction;
-       
+        Users = new GenericRepository<User>(dbContext);
+        Roles = new GenericRepository<Role>(dbContext);
     }
+
+    public IGenericRepository<User> Users { get; }
+
+    public IGenericRepository<Role> Roles { get; }
 
     public void Dispose()
     {
