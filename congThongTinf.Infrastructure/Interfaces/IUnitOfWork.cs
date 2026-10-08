@@ -7,5 +7,7 @@ public interface IUnitOfWork : IDisposable
 
     IGenericRepository<Role> Roles { get; }
 
+    IGenericRepository<News> News { get; }
+
     Task<int> SaveChangesAsync();
 }

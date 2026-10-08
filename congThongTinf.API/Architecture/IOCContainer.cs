@@ -123,6 +123,7 @@ public static class IocContainer
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<INewsService, NewsService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 
         services.AddHttpContextAccessor();
