@@ -1,4 +1,4 @@
-﻿using congThongTinf.Repository.Entities;
+﻿using congThongTinf.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace congThongTinf.Domain;

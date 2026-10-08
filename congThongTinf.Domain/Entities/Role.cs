@@ -1,4 +1,4 @@
-namespace congThongTinf.Repository.Entities;
+namespace congThongTinf.Domain.Entities;
 
 /// <summary>
 /// Represents a role in the system (Admin, Journalist, etc.)

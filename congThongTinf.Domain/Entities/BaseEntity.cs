@@ -1,4 +1,4 @@
-﻿namespace congThongTinf.Repository.Entities;
+﻿namespace congThongTinf.Domain.Entities;
 
 /// <summary>
 /// Base class for all entities in the domain

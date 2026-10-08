@@ -1,4 +1,4 @@
-namespace congThongTinf.Repository.Entities;
+namespace congThongTinf.Domain.Entities;
 
 /// <summary>
 /// Represents a news article in the system
