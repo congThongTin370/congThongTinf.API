@@ -1,12 +1,10 @@
-namespace congThongTinf.Domain.Entities;
+namespace congThongTinf.Repository.Entities;
 
 /// <summary>
 /// Represents a news article in the system
 /// </summary>
-public class News
+public class News : BaseEntity
 {
-    public Guid Id { get; set; }
-
     public string Title { get; set; } = string.Empty;
 
     public string Summary { get; set; } = string.Empty;
@@ -22,10 +20,6 @@ public class News
     public User? Author { get; set; }
 
     public NewsStatus Status { get; set; } = NewsStatus.Draft;
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
 
     public DateTime? PublishedAt { get; set; }
 

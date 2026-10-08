@@ -1,12 +1,10 @@
-namespace congThongTinf.Domain.Entities;
+namespace congThongTinf.Repository.Entities;
 
 /// <summary>
 /// Represents an internal division document
 /// </summary>
-public class Document
+public class Document : BaseEntity
 {
-    public Guid Id { get; set; }
-
     public string Title { get; set; } = string.Empty;
 
     public string Description { get; set; } = string.Empty;
@@ -24,10 +22,6 @@ public class Document
     public User? UploadedByUser { get; set; }
 
     public DocumentCategory Category { get; set; } = DocumentCategory.General;
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
 }
 
 /// <summary>

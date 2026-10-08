@@ -1,12 +1,10 @@
-namespace congThongTinf.Domain.Entities;
+namespace congThongTinf.Repository.Entities;
 
 /// <summary>
 /// Represents a user account in the system (Admin or Journalist)
 /// </summary>
-public class User
+public class User : BaseEntity
 {
-    public Guid Id { get; set; }
-
     public string Username { get; set; } = string.Empty;
 
     public string Email { get; set; } = string.Empty;
@@ -20,10 +18,6 @@ public class User
     public Role? Role { get; set; }
 
     public bool IsActive { get; set; } = true;
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
 

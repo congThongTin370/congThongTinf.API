@@ -1,5 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using congThongTinf.Domain.Entities;
+﻿using congThongTinf.Repository.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace congThongTinf.Domain;
 

@@ -1,4 +1,4 @@
-﻿using congThongTinf.Domain.Entities;
+﻿using congThongTinf.Repository.Entities;
 using System.Linq.Expressions;
 
 
