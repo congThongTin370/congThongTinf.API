@@ -37,7 +37,8 @@ services:
       # - MINIO_SECRET_KEY=minioadmin
 
     ports:
-      - "5000:5000"
+      - "5000:8080"
+      - "5001:8081"
 
   congthongtinf.database:
     image: postgres:17

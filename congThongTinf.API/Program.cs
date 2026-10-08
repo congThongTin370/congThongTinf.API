@@ -13,7 +13,6 @@ app.UseCors("AllowFrontend");
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
-
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint(
@@ -32,7 +31,6 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
     });
 }
 
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
