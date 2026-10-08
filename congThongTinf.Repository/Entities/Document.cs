@@ -1,0 +1,43 @@
+namespace congThongTinf.Repository.Entities;
+
+/// <summary>
+/// Represents an internal division document
+/// </summary>
+public class Document
+{
+    public Guid Id { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public string FileUrl { get; set; } = string.Empty;
+
+    public string FileName { get; set; } = string.Empty;
+
+    public string FileType { get; set; } = string.Empty;
+
+    public long FileSize { get; set; }
+
+    public Guid UploadedByUserId { get; set; }
+
+    public User? UploadedByUser { get; set; }
+
+    public DocumentCategory Category { get; set; } = DocumentCategory.General;
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Categories for internal documents
+/// </summary>
+public enum DocumentCategory
+{
+    General = 0,
+    Policy = 1,
+    Procedure = 2,
+    Report = 3,
+    Guideline = 4
+}
