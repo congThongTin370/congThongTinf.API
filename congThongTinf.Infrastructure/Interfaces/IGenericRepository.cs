@@ -2,7 +2,7 @@
 using System.Linq.Expressions;
 
 
-public interface IGenericRepository<TEntity> where TEntity : BaseEntity
+public interface IGenericRepository<TEntity> where TEntity : BaseEntity 
 {
     public Task<List<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>> predicate = null,
         params Expression<Func<TEntity, object>>[] includes);

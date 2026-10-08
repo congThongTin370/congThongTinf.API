@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using congThongTinf.Domain;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Reflection;
@@ -17,7 +19,7 @@ public static class IocContainer
         //services.AddScoped<ILoggerService, LoggerService>();
 
         //Add Project Services
-        //services.SetupDbContext();
+        services.SetupDbContext();
         //services.SetupSwagger();
 
         //Add generic repositories
@@ -25,7 +27,7 @@ public static class IocContainer
         //Add business services
         services.SetupBusinessServicesLayer();
 
-        services.SetupJwt();
+        //services.SetupJwt();
 
         // services.SetupGraphQl();
         //services.SetupReSendService();
@@ -86,31 +88,31 @@ public static class IocContainer
         return services;
     }
 
-    //private static IServiceCollection SetupDbContext(this IServiceCollection services)
-    //{
-    //    IConfiguration configuration = new ConfigurationBuilder()
-    //        .SetBasePath(Directory.GetCurrentDirectory())
-    //        .AddJsonFile("appsettings.json", true, true)
-    //        .AddEnvironmentVariables()
-    //        .Build();
+    private static IServiceCollection SetupDbContext(this IServiceCollection services)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", true, true)
+            .AddEnvironmentVariables()
+            .Build();
 
-    //    var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-    //    services.AddDbContext<>(options =>
-    //        options.UseNpgsql(connectionString, sql =>
-    //        {
-    //            sql.MigrationsAssembly(typeof(BlindTreasureDbContext).Assembly.FullName);
-    //            sql.CommandTimeout(300); // Cấu hình thời gian timeout truy vấn (tính bằng giây)
-    //            sql.EnableRetryOnFailure(
-    //                5,
-    //                TimeSpan.FromSeconds(10),
-    //                null
-    //            );
-    //        })
-    //    );
+        services.AddDbContext<congThongTinfDbContext>(options =>
+            options.UseNpgsql(connectionString, sql =>
+            {
+                sql.MigrationsAssembly(typeof(congThongTinfDbContext).Assembly.FullName);
+                sql.CommandTimeout(300); // Cấu hình thời gian timeout truy vấn (tính bằng giây)
+                sql.EnableRetryOnFailure(
+                    5,
+                    TimeSpan.FromSeconds(10),
+                    null
+                );
+            })
+        );
 
-    //    return services;
-    //}
+        return services;
+    }
 
 
     public static IServiceCollection SetupBusinessServicesLayer(this IServiceCollection services)

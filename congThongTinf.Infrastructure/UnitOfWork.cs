@@ -1,5 +1,4 @@
 ﻿using congThongTinf.Domain;
-using congThongTinf.Repository.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 

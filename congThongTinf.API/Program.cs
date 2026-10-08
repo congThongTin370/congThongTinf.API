@@ -1,3 +1,5 @@
+using congThongTinf.API.Architecture;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -5,6 +7,7 @@ builder.Services.AddControllers();
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.SetupIocContainer();
 
 var app = builder.Build();
 
