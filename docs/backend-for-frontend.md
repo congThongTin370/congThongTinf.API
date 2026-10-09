@@ -34,10 +34,10 @@ API đã mở:
 
 - Auth: đăng nhập, đăng xuất, admin tạo tài khoản phóng viên
 - Me: đọc role của token, kiểm tra admin
-- News: lấy danh sách, lọc theo ngày tạo và danh mục
+- News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
 - System: seed / xóa dữ liệu local
 
-Chưa có API: dashboard, quản lý user đầy đủ, CRUD bài viết, xuất bản, văn bản nội bộ (`Document`).
+Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), văn bản nội bộ (`Document`).
 
 ## Vai trò
 
@@ -46,7 +46,7 @@ Chưa có API: dashboard, quản lý user đầy đủ, CRUD bài viết, xuất
 | Giá trị | Số | Quyền đang gắn trên API |
 | --- | --- | --- |
 | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. |
-| `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Chưa có API bài viết riêng. |
+| `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. |
 
 Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
 
@@ -281,6 +281,81 @@ Query:
 
 Danh sách sort `CreatedAt` giảm dần. Không phân trang. Trả mọi status, kể cả Draft và Pending.
 
+### Chi tiết
+
+`GET /api/news/{id}` — public.
+
+- Thành công: HTTP `200`, `value.data` là `NewsDto`.
+- Không tồn tại: HTTP `404`, `Bài báo với ID {id} không tồn tại.`
+
+### Tạo bài
+
+`POST /api/news` — cần token, role `Journalist`. Bài tạo ra có `authorId` là user trong token, status `Draft`.
+
+```json
+{
+  "title": "Tiêu đề bài",
+  "summary": "Tóm tắt",
+  "content": "Nội dung đầy đủ",
+  "coverImageUrl": null,
+  "categoryId": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+| Field | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `title` | Có | Không được chỉ có khoảng trắng |
+| `content` | Có | Không được chỉ có khoảng trắng |
+| `categoryId` | Có | Phải là Guid của category đã tồn tại |
+| `summary` | Không | Mặc định chuỗi rỗng |
+| `coverImageUrl` | Không | URL hoặc null |
+
+Thành công: HTTP `200`, `value.data` là `NewsDto` vừa tạo.
+
+- Thiếu `title`, `content` hoặc `categoryId`: HTTP `400`, `Tiêu đề, nội dung và danh mục là bắt buộc.`
+- `categoryId` không tồn tại: HTTP `404`, `Danh mục với ID {id} không tồn tại.`
+- Không phải Journalist (kể cả Admin): HTTP `403`, `Chỉ phóng viên mới được thực hiện thao tác này.`
+- User trong token không còn trong DB hoặc bị khóa: HTTP `401`, `Không xác định được người dùng hiện tại.`
+
+### Sửa bài
+
+`PUT /api/news/{id}` — cần token, role `Journalist`, và phải là tác giả của bài.
+
+Mọi field đều optional. Field không gửi hoặc gửi `null` thì giữ nguyên.
+
+```json
+{
+  "title": "Tiêu đề mới",
+  "summary": "Tóm tắt mới",
+  "content": "Nội dung mới",
+  "coverImageUrl": "https://...",
+  "categoryId": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+Thành công: HTTP `200`, `value.data` là `NewsDto` sau khi sửa.
+
+- Không tồn tại: HTTP `404`.
+- Không phải tác giả: HTTP `403`, `Bạn chỉ được thao tác trên bài viết của chính mình.`
+- Không phải Journalist: HTTP `403`.
+- `title` hoặc `content` gửi chuỗi rỗng/khoảng trắng: HTTP `400`.
+- `categoryId` không tồn tại: HTTP `404`.
+
+### Xóa bài
+
+`DELETE /api/news/{id}` — cần token, role `Journalist`, phải là tác giả. Xóa cứng (hard delete): bản ghi bị xóa khỏi DB, không khôi phục được. Soft delete chưa được hỗ trợ vì `BaseEntity` chưa có cờ xóa.
+
+Thành công: HTTP `200`, `value.data` là `true`, message `Xóa bài báo thành công.`
+
+- Không tồn tại: HTTP `404`.
+- Không phải tác giả hoặc không phải Journalist: HTTP `403`.
+
+### Quyền trên endpoint ghi
+
+`POST`, `PUT`, `DELETE` dùng `[Authorize]`. Thiếu token trả 401 framework (không có envelope). Kiểm tra role Journalist và quyền tác giả nằm trong service, trả envelope `403`.
+
+Role được lấy từ DB theo `userId` trong token (qua `AdminService.GetUserById`), không đọc từ claim `role`. Nếu user bị đổi role hoặc khóa trong DB, quyền thay đổi theo DB ngay cả khi token còn hạn.
+
 `NewsStatus` trong `status` là số:
 
 | Tên | Số |
@@ -327,7 +402,7 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 
 ## Việc frontend nên làm
 
-- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`.
+- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, và `POST`/`PUT`/`DELETE` `/api/news`.
 - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
 - Đọc payload ở `response.value.data`.
 - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.

@@ -9,5 +9,7 @@ public interface IUnitOfWork : IDisposable
 
     IGenericRepository<News> News { get; }
 
+    IGenericRepository<Category> Categories { get; }
+
     Task<int> SaveChangesAsync();
 }

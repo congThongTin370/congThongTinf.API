@@ -10,11 +10,13 @@ public class NewsService : INewsService
 {
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAdminService _adminService;
 
-    public NewsService(ILoggerService logger, IUnitOfWork unitOfWork)
+    public NewsService(ILoggerService logger, IUnitOfWork unitOfWork, IAdminService adminService)
     {
         _logger = logger;
         _unitOfWork = unitOfWork;
+        _adminService = adminService;
     }
 
     public async Task<List<NewsDto>> GetAllNewsAsync(NewsQueryDto? query)
@@ -57,6 +59,160 @@ public class NewsService : INewsService
 
         _logger.Success($"[GetAllNews] Returned {result.Count} articles.");
         return result.Select(ToDto).ToList();
+    }
+
+    public async Task<NewsDto> GetNewsByIdAsync(Guid id)
+    {
+        _logger.Info($"[GetNewsById] Requests news {id}");
+
+        var news = await GetNewsWithRelationsAsync(id);
+        if (news == null)
+        {
+            _logger.Warn($"[GetNewsById] News {id} not found.");
+            throw ErrorHelper.NotFound($"Bài báo với ID {id} không tồn tại.");
+        }
+
+        return ToDto(news);
+    }
+
+    public async Task<NewsDto> CreateNewsAsync(Guid currentUserId, CreateNewsDto dto)
+    {
+        _logger.Info($"[CreateNews] User {currentUserId} starts creating news.");
+
+        await EnsureJournalistAsync(currentUserId);
+
+        if (string.IsNullOrWhiteSpace(dto.Title)
+            || string.IsNullOrWhiteSpace(dto.Content)
+            || dto.CategoryId == Guid.Empty)
+            throw ErrorHelper.BadRequest("Tiêu đề, nội dung và danh mục là bắt buộc.");
+
+        var category = await _unitOfWork.Categories.GetByIdAsync(dto.CategoryId);
+        if (category == null)
+            throw ErrorHelper.NotFound($"Danh mục với ID {dto.CategoryId} không tồn tại.");
+
+        var news = new News
+        {
+            Title = dto.Title.Trim(),
+            Summary = dto.Summary?.Trim() ?? string.Empty,
+            Content = dto.Content,
+            CoverImageUrl = dto.CoverImageUrl,
+            CategoryId = dto.CategoryId,
+            AuthorId = currentUserId,
+            Status = NewsStatus.Draft,
+        };
+
+        await _unitOfWork.News.AddAsync(news);
+        await _unitOfWork.SaveChangesAsync();
+
+        _logger.Success($"[CreateNews] News {news.Id} created by user {currentUserId}.");
+        return await GetNewsByIdAsync(news.Id);
+    }
+
+    public async Task<NewsDto> UpdateNewsAsync(Guid currentUserId, Guid id, UpdateNewsDto dto)
+    {
+        _logger.Info($"[UpdateNews] User {currentUserId} starts updating news {id}.");
+
+        await EnsureJournalistAsync(currentUserId);
+
+        var news = await _unitOfWork.News.GetByIdAsync(id);
+        if (news == null)
+        {
+            _logger.Warn($"[UpdateNews] News {id} not found.");
+            throw ErrorHelper.NotFound($"Bài báo với ID {id} không tồn tại.");
+        }
+
+        EnsureOwner(news, currentUserId);
+
+        if (dto.Title != null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw ErrorHelper.BadRequest("Tiêu đề không được để trống.");
+            news.Title = dto.Title.Trim();
+        }
+
+        if (dto.Summary != null)
+            news.Summary = dto.Summary.Trim();
+
+        if (dto.Content != null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Content))
+                throw ErrorHelper.BadRequest("Nội dung không được để trống.");
+            news.Content = dto.Content;
+        }
+
+        if (dto.CoverImageUrl != null)
+            news.CoverImageUrl = dto.CoverImageUrl;
+
+        if (dto.CategoryId.HasValue)
+        {
+            if (dto.CategoryId.Value == Guid.Empty)
+                throw ErrorHelper.BadRequest("Danh mục không hợp lệ.");
+
+            var category = await _unitOfWork.Categories.GetByIdAsync(dto.CategoryId.Value);
+            if (category == null)
+                throw ErrorHelper.NotFound($"Danh mục với ID {dto.CategoryId.Value} không tồn tại.");
+
+            news.CategoryId = dto.CategoryId.Value;
+        }
+
+        await _unitOfWork.News.Update(news);
+        await _unitOfWork.SaveChangesAsync();
+
+        _logger.Success($"[UpdateNews] News {id} updated by user {currentUserId}.");
+        return await GetNewsByIdAsync(id);
+    }
+
+    public async Task<bool> DeleteNewsAsync(Guid currentUserId, Guid id)
+    {
+        _logger.Info($"[DeleteNews] User {currentUserId} starts deleting news {id}.");
+
+        await EnsureJournalistAsync(currentUserId);
+
+        var news = await _unitOfWork.News.GetByIdAsync(id);
+        if (news == null)
+        {
+            _logger.Warn($"[DeleteNews] News {id} not found.");
+            throw ErrorHelper.NotFound($"Bài báo với ID {id} không tồn tại.");
+        }
+
+        EnsureOwner(news, currentUserId);
+
+        await _unitOfWork.News.HardRemoveRange(new List<News> { news });
+        await _unitOfWork.SaveChangesAsync();
+
+        _logger.Success($"[DeleteNews] News {id} deleted by user {currentUserId}.");
+        return true;
+    }
+
+    /// <summary>
+    ///     Throws 403 unless the current user exists, is active, and has the Journalist role.
+    /// </summary>
+    private async Task EnsureJournalistAsync(Guid currentUserId)
+    {
+        var user = await _adminService.GetUserById(currentUserId);
+        if (user == null)
+            throw ErrorHelper.Unauthorized("Không xác định được người dùng hiện tại.");
+
+        var role = await _unitOfWork.Roles.GetByIdAsync(user.RoleId);
+        if (role?.Name != RoleType.Journalist)
+            throw ErrorHelper.Forbidden("Chỉ phóng viên mới được thực hiện thao tác này.");
+    }
+
+    /// <summary>
+    ///     Throws 403 unless the current user is the author of the article.
+    /// </summary>
+    private static void EnsureOwner(News news, Guid currentUserId)
+    {
+        if (news.AuthorId != currentUserId)
+            throw ErrorHelper.Forbidden("Bạn chỉ được thao tác trên bài viết của chính mình.");
+    }
+
+    private async Task<News?> GetNewsWithRelationsAsync(Guid id)
+    {
+        return await _unitOfWork.News.GetQueryable()
+            .Include(n => n.Category)
+            .Include(n => n.Author)
+            .FirstOrDefaultAsync(n => n.Id == id);
     }
 
     private static NewsDto ToDto(News news)

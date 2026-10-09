@@ -2,7 +2,9 @@
 using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Infrastructure.Interfaces;
 using congThongTinf.Service.Interfaces;
+using congThongTinf.Service.Interfaces.Commons;
 using congThongTinf.Service.Services;
+using congThongTinf.Service.Services.Commons;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -123,6 +125,8 @@ public static class IocContainer
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IBlobService, BlobService>();
+        services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<INewsService, NewsService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 

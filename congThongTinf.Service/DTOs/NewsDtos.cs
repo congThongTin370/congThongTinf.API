@@ -41,3 +41,29 @@ public class NewsDto
 
     public int ViewCount { get; set; }
 }
+
+public class CreateNewsDto
+{
+    public string Title { get; set; } = string.Empty;
+
+    public string Summary { get; set; } = string.Empty;
+
+    public string Content { get; set; } = string.Empty;
+
+    public string? CoverImageUrl { get; set; }
+
+    public Guid CategoryId { get; set; }
+}
+
+public class UpdateNewsDto
+{
+    public string? Title { get; set; }
+
+    public string? Summary { get; set; }
+
+    public string? Content { get; set; }
+
+    public string? CoverImageUrl { get; set; }
+
+    public Guid? CategoryId { get; set; }
+}
