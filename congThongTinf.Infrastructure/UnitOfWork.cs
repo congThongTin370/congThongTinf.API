@@ -19,6 +19,8 @@ public class UnitOfWork : IUnitOfWork
         Roles = new GenericRepository<Role>(dbContext);
         News = new GenericRepository<News>(dbContext);
         Categories = new GenericRepository<Category>(dbContext);
+        Documents = new GenericRepository<Document>(dbContext);
+        Banners = new GenericRepository<Banner>(dbContext);
     }
 
     public IGenericRepository<User> Users { get; }
@@ -28,6 +30,10 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<News> News { get; }
 
     public IGenericRepository<Category> Categories { get; }
+
+    public IGenericRepository<Document> Documents { get; }
+
+    public IGenericRepository<Banner> Banners { get; }
 
     public void Dispose()
     {

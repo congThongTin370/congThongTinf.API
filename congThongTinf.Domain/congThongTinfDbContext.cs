@@ -25,6 +25,8 @@ public class congThongTinfDbContext : DbContext
 
     public DbSet<Document> Documents { get; set; }
 
+    public DbSet<Banner> Banners { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -100,8 +102,23 @@ public class congThongTinfDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.FileUrl).IsRequired();
             entity.Property(e => e.FileName).IsRequired().HasMaxLength(256);
-            entity.Property(e => e.FileType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FileType).IsRequired().HasMaxLength(128);
             entity.Property(e => e.Category).IsRequired();
+
+            entity.HasOne(e => e.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Banner>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.ImageUrl).IsRequired();
+            entity.Property(e => e.FileKey).IsRequired().HasMaxLength(512);
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.FileType).IsRequired().HasMaxLength(128);
 
             entity.HasOne(e => e.UploadedByUser)
                 .WithMany()

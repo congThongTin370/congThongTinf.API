@@ -11,5 +11,9 @@ public interface IUnitOfWork : IDisposable
 
     IGenericRepository<Category> Categories { get; }
 
+    IGenericRepository<Document> Documents { get; }
+
+    IGenericRepository<Banner> Banners { get; }
+
     Task<int> SaveChangesAsync();
 }
