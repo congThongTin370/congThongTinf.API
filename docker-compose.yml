@@ -7,34 +7,16 @@ services:
     depends_on:
       congthongtinf.database:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
 
       # PostgreSQL
       - ConnectionStrings__DefaultConnection=Host=congthongtinf.database;Port=5432;Database=CongThongTinfDB;Username=postgres;Password=postgres;Timeout=300;CommandTimeout=300
 
-      # Redis
-      - ConnectionStrings__Redis=redis:6379,abortConnect=false
-
-      # # JWT
-      # - JWT__SecretKey=YOUR_SECRET_KEY
-      # - JWT__Issuer=CongThongTinF_Issuer
-      # - JWT__Audience=CongThongTinF_Audience
-
-      # # Gemini
-      # - GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-
-      # # Resend
-      # - RESEND_APITOKEN=YOUR_RESEND_API_TOKEN
-      # - RESEND_FROM=noreply@example.com
-
-      # # MinIO
-      # - MINIO_ENDPOINT=minio:9000
-      # - MINIO_HOST=http://minio:9001
-      # - MINIO_ACCESS_KEY=minioadmin
-      # - MINIO_SECRET_KEY=minioadmin
+      # JWT
+      - JWT__SecretKey=YOUR_SECRET_KEY
+      - JWT__Issuer=CongThongTinF_Issuer
+      - JWT__Audience=CongThongTinF_Audience
 
     ports:
       - "5000:8080"
@@ -57,19 +39,5 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
 volumes:
   pgdata:
-  redisdata:

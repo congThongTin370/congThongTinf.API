@@ -154,6 +154,7 @@ public static class ErrorMessages
     public const string CategoryParentIdSelf = "Danh mục không thể làm cha của chính nó.";
     public const string CategoryHierarchyLoop = "Không thể tạo vòng lặp trong cấu trúc danh mục.";
     public const string CategoryNoDeletePermission = "Bạn không có quyền xóa danh mục.";
+    public const string CategoryDeleteHasArticles = "Không thể xóa danh mục đang có bài báo liên quan.";
 
     public const string CategoryDeleteHasChildrenOrProducts =
         "Không thể xóa danh mục có sản phẩm hoặc danh mục con liên quan.";

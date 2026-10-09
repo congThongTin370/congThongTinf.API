@@ -35,6 +35,7 @@ API đã mở:
 - Auth: đăng nhập, đăng xuất, admin tạo tài khoản phóng viên
 - Me: đọc role của token, kiểm tra admin
 - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
+- Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
 - System: seed / xóa dữ liệu local
 
 Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), văn bản nội bộ (`Document`).
@@ -45,8 +46,8 @@ Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết
 
 | Giá trị | Số | Quyền đang gắn trên API |
 | --- | --- | --- |
-| `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. |
-| `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. |
+| `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. Tạo, sửa, xóa danh mục. |
+| `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
 Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
 
@@ -265,6 +266,104 @@ Frontend nên coi 401 không có `isSuccess` là hết phiên: xóa token và đ
 
 Login sai mật khẩu vẫn là 401 **có** envelope. Đừng xóa token ở nhánh đó vì lúc đó client chưa có phiên.
 
+## Category
+
+Danh mục bài báo. Entity `Category` có `name`, `description`, `icon`, `displayOrder`, `isActive`.
+
+Xóa là **xóa mềm**: `DELETE` chỉ đặt `isActive = false`, bản ghi vẫn còn trong DB. Mọi endpoint đọc và sửa đều chỉ làm việc với danh mục đang `isActive = true`, nên danh mục đã xóa coi như không tồn tại (`404`).
+
+### Danh sách
+
+`GET /api/categories` — cần token, mọi role.
+
+Chỉ trả danh mục đang active, sắp xếp theo `displayOrder` tăng dần, sau đó theo `name`. Không phân trang.
+
+Thành công: HTTP `200`, `value.data` là mảng `CategoryDto`.
+
+### Chi tiết
+
+`GET /api/categories/{id}` — cần token, mọi role.
+
+- Thành công: HTTP `200`, `value.data` là `CategoryDto`.
+- Không tồn tại hoặc đã xóa: HTTP `404`, `Không tìm thấy danh mục.`
+
+### Tạo
+
+`POST /api/categories` — cần token, role `Admin`.
+
+```json
+{
+  "name": "Huấn luyện",
+  "description": "Tin tức huấn luyện",
+  "icon": null,
+  "displayOrder": 1,
+  "isActive": true
+}
+```
+
+| Field | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `name` | Có | Không được chỉ có khoảng trắng. Trùng tên (không phân biệt hoa thường) với danh mục đang active: `409` |
+| `description` | Không | Mặc định chuỗi rỗng |
+| `icon` | Không | string hoặc null |
+| `displayOrder` | Không | Mặc định `0` |
+| `isActive` | Không | Mặc định `true` |
+
+Thành công: HTTP `200`, `value.data` là `CategoryDto` vừa tạo.
+
+- `name` thiếu hoặc rỗng: HTTP `400`, `Tên danh mục là bắt buộc.`
+- Trùng tên: HTTP `409`, `Tên danh mục đã tồn tại.`
+- Không phải Admin: HTTP `403` (framework, không có envelope).
+
+### Sửa
+
+`PUT /api/categories/{id}` — cần token, role `Admin`.
+
+Mọi field đều optional. Field không gửi hoặc gửi `null` thì giữ nguyên.
+
+```json
+{
+  "name": "Chính trị",
+  "description": "Tin chính trị",
+  "icon": "flag",
+  "displayOrder": 2,
+  "isActive": true
+}
+```
+
+Thành công: HTTP `200`, `value.data` là `CategoryDto` sau khi sửa.
+
+- Không tồn tại hoặc đã xóa: HTTP `404`.
+- `name` gửi chuỗi rỗng/khoảng trắng: HTTP `400`.
+- Đổi sang tên đang được danh mục active khác dùng: HTTP `409`.
+- Không phải Admin: HTTP `403` (framework).
+
+Gửi `isActive: false` qua `PUT` cũng ẩn danh mục, nhưng nên dùng `DELETE` để xóa.
+
+### Xóa
+
+`DELETE /api/categories/{id}` — cần token, role `Admin`. Xóa mềm.
+
+Thành công: HTTP `200`, `value.data` là `true`, message `Xóa danh mục thành công.`
+
+- Không tồn tại hoặc đã xóa: HTTP `404`.
+- Danh mục còn bài báo liên quan (kể cả bài Draft): HTTP `409`, `Không thể xóa danh mục đang có bài báo liên quan.`
+- Không phải Admin: HTTP `403` (framework).
+
+Danh mục đã xóa mềm vẫn gắn vào bài báo cũ; `categoryName` của bài đó vẫn hiện bình thường.
+
+### CategoryDto
+
+| Field | Kiểu |
+| --- | --- |
+| `id` | Guid |
+| `name` | string |
+| `description` | string |
+| `icon` | string hoặc null |
+| `displayOrder` | number |
+| `isActive` | bool |
+| `createdAt`, `updatedAt` | datetime UTC |
+
 ## News
 
 `GET /api/news` — public, không cần token.
@@ -402,7 +501,7 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 
 ## Việc frontend nên làm
 
-- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, và `POST`/`PUT`/`DELETE` `/api/news`.
+- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `/api/categories/*`, và `POST`/`PUT`/`DELETE` `/api/news`.
 - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
 - Đọc payload ở `response.value.data`.
 - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.

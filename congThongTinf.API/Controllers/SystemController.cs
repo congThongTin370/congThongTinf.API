@@ -249,7 +249,7 @@ namespace congThongTinf.API.Controllers
                     Id = Guid.NewGuid(),
                     Title = "Sư đoàn 370 tổ chức hội nghị giao ban tháng 10",
                     Summary = "Các đơn vị báo cáo kết quả huấn luyện, sẵn sàng chiến đấu và công tác bảo đảm trong tháng.",
-                    Content = "Sáng ngày 8/10, Sư đoàn Không quân 370 tổ chức hội nghị giao ban tháng. Chỉ huy các đơn vị đã báo cáo tiến độ huấn luyện bay, công tác kỹ thuật và bảo đảm hậu cần. Hội nghị thống nhất kế hoạch duy trì sẵn sàng chiến đấu trong quý IV.",
+                    Content = BuildArticleContent(Random.Shared),
                     CategoryId = categories["Tin tức đơn vị"],
                     AuthorId = authorId,
                     Status = NewsStatus.Published,
@@ -263,7 +263,7 @@ namespace congThongTinf.API.Controllers
                     Id = Guid.NewGuid(),
                     Title = "Trung đoàn hoàn thành đợt bay huấn luyện đêm",
                     Summary = "Phi công và tổ bay hoàn thành đủ giáo án bay đêm trong điều kiện thời tiết phức tạp.",
-                    Content = "Trong ba ngày vừa qua, Trung đoàn đã tổ chức bay huấn luyện đêm theo đúng kế hoạch. Các tổ bay bảo đảm an toàn tuyệt đối, hoàn thành nội dung cất cánh, tiếp cận và hạ cánh trong điều kiện tầm nhìn hạn chế.",
+                    Content = BuildArticleContent(Random.Shared),
                     CategoryId = categories["Huấn luyện"],
                     AuthorId = authorId,
                     Status = NewsStatus.Published,
@@ -277,7 +277,7 @@ namespace congThongTinf.API.Controllers
                     Id = Guid.NewGuid(),
                     Title = "Sinh hoạt chính trị chủ đề truyền thống Sư đoàn",
                     Summary = "Cán bộ, chiến sĩ ôn lại truyền thống chiến đấu và những tấm gương điển hình của đơn vị.",
-                    Content = "Buổi sinh hoạt chính trị được tổ chức tại hội trường sư đoàn, với nội dung ôn lại chặng đường xây dựng, chiến đấu và trưởng thành. Các đại biểu đã trao đổi về việc giữ vững bản lĩnh chính trị trong tình hình mới.",
+                    Content = BuildArticleContent(Random.Shared),
                     CategoryId = categories["Chính trị"],
                     AuthorId = authorId,
                     Status = NewsStatus.Pending,
@@ -290,8 +290,9 @@ namespace congThongTinf.API.Controllers
                     Id = Guid.NewGuid(),
                     Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
                     Summary = "Dự thảo kế hoạch kiểm tra bảo dưỡng máy bay và trang bị mặt đất trong tháng tới.",
-                    Content = "Ban Kỹ thuật đang hoàn thiện kế hoạch kiểm tra định kỳ trang bị kỹ thuật hàng không. Nội dung dự kiến gồm bảo dưỡng định kỳ, kiểm tra sổ sách và rà soát vật tư dự trữ.",
+                    Content = BuildArticleContent(Random.Shared),
                     CategoryId = categories["Tin tức đơn vị"],
+                    CoverImageUrl = "https://file3.qdnd.vn/data/images/0/2022/01/15/thuyan/e%20917.jpg?dpi=150&quality=100&w=870",
                     AuthorId = authorId,
                     Status = NewsStatus.Draft,
                     ViewCount = 0,
@@ -300,10 +301,98 @@ namespace congThongTinf.API.Controllers
                 }
             };
 
+            articles.AddRange(BuildRandomArticles(now, categories.Values.ToList(), await GetSeededAuthorIdsAsync(), 15));
+
             await _context.News.AddRangeAsync(articles);
             await _context.SaveChangesAsync();
             _logger.Success($"Đã seed {articles.Count} bài viết.");
             return articles.Count;
+        }
+
+        private async Task<List<Guid>> GetSeededAuthorIdsAsync()
+        {
+            var ids = await _context.Users
+                .Where(u => u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            if (ids.Count == 0)
+                ids.Add(await EnsureJournalist(DateTime.UtcNow));
+
+            return ids;
+        }
+
+        private static List<News> BuildRandomArticles(DateTime now, List<Guid> categoryIds, List<Guid> authorIds, int count)
+        {
+            var random = Random.Shared;
+            var titles = new[]
+            {
+                "Đơn vị ra quân huấn luyện đầu tháng",
+                "Tổ bay hoàn thành nhiệm vụ bay đêm",
+                "Hội thi kỹ thuật bảo dưỡng máy bay",
+                "Cán bộ tiêu biểu được biểu dương",
+                "Bảo đảm an toàn bay trong mùa mưa",
+                "Lớp học nâng cao kỹ năng chỉ huy",
+                "Đại hội Chi bộ nhiệm kỳ mới",
+                "Diễn tập sẵn sàng chiến đấu cấp đơn vị",
+                "Hoạt động thể thao giao hữu giữa các đơn vị",
+                "Tăng cường công tác bảo đảm hậu cần",
+                "Kiểm tra chất lượng trang bị kỹ thuật",
+                "Văn nghệ quần chúng mừng ngày truyền thống",
+                "Đoàn viên thanh niên tham gia hiến máu",
+                "Tập huấn phòng cháy chữa cháy tại doanh trại",
+                "Gặp mặt cựu chiến binh nhân dịp kỷ niệm"
+            };
+            var summaries = new[]
+            {
+                "Thông tin cập nhật về hoạt động của đơn vị trong thời gian gần đây.",
+                "Tóm tắt kết quả và các nội dung đã triển khai theo kế hoạch.",
+                "Nội dung chính được tổng hợp từ báo cáo của các đơn vị trực thuộc."
+            };
+            var statuses = new[] { NewsStatus.Draft, NewsStatus.Pending, NewsStatus.Published };
+
+            var articles = new List<News>(count);
+            for (var i = 0; i < count; i++)
+            {
+                var status = statuses[random.Next(statuses.Length)];
+                var createdAt = now.AddHours(-random.Next(1, 24 * 14));
+                articles.Add(new News
+                {
+                    Id = Guid.NewGuid(),
+                    Title = titles[i % titles.Length],
+                    Summary = summaries[random.Next(summaries.Length)],
+                    Content = BuildArticleContent(random),
+                    CategoryId = categoryIds[random.Next(categoryIds.Count)],
+                    AuthorId = authorIds[random.Next(authorIds.Count)],
+                    Status = status,
+                    PublishedAt = status == NewsStatus.Published ? createdAt.AddHours(2) : null,
+                    ViewCount = status == NewsStatus.Published ? random.Next(0, 200) : 0,
+                    CreatedAt = createdAt,
+                    UpdatedAt = createdAt.AddHours(1)
+                });
+            }
+
+            return articles;
+        }
+
+        private static string BuildArticleContent(Random random)
+        {
+            var paragraphs = new[]
+            {
+                "Trong bối cảnh nhiệm vụ huấn luyện và sẵn sàng chiến đấu ngày càng được đặt ra cao hơn, các đơn vị thuộc Sư đoàn Không quân 370 tiếp tục đẩy mạnh công tác chuẩn bị, bảo đảm đầy đủ về con người, trang bị và điều kiện thực hiện nhiệm vụ. Nội dung được triển khai đồng bộ từ cấp chi bộ đến từng tổ bay, từng bộ phận kỹ thuật.",
+                "Theo báo cáo của các đơn vị, kế hoạch đã được thực hiện đúng tiến độ với nhiều điểm mới. Cán bộ chỉ huy chú trọng rà soát lại quy trình, phân công trách nhiệm rõ ràng cho từng cá nhân và tăng cường kiểm tra thường xuyên trong suốt quá trình triển khai.",
+                "Công tác bảo đảm kỹ thuật được coi là khâu then chốt. Các tổ kỹ thuật tiến hành kiểm tra, bảo dưỡng định kỳ theo đúng quy định, đối chiếu sổ sách và ghi chép đầy đủ tình trạng trang bị. Mọi phát hiện bất thường đều được báo cáo kịp thời và xử lý dứt điểm trước khi đưa vào sử dụng.",
+                "Song song với huấn luyện chuyên môn, các đơn vị đặc biệt quan tâm đến công tác giáo dục chính trị, tư tưởng cho cán bộ, chiến sĩ. Các buổi sinh hoạt được tổ chức nghiêm túc, bám sát tình hình thực tế, giúp mỗi người nâng cao nhận thức về trách nhiệm và kỷ luật trong quân ngũ.",
+                "Về công tác hậu cần, đơn vị đã chủ động rà soát nhu cầu vật tư, nhiên liệu và các điều kiện sinh hoạt phục vụ bộ đội. Việc bảo đảm đầy đủ, kịp thời góp phần giữ vững nhịp độ huấn luyện, đồng thời bảo đảm sức khỏe và đời sống tinh thần cho cán bộ, chiến sĩ trong suốt thời gian làm nhiệm vụ.",
+                "Các đại biểu đánh giá cao tinh thần trách nhiệm và ý thức tự giác của lực lượng trực tiếp thực hiện. Nhiều tập thể, cá nhân có thành tích xuất sắc đã được biểu dương, qua đó tạo động lực thi đua lập thành tích chào mừng các dịp kỷ niệm quan trọng của đơn vị trong thời gian tới.",
+                "Thời gian tới, đơn vị tiếp tục duy trì các nội dung đã triển khai, đồng thời khắc phục những hạn chế được nêu ra trong quá trình kiểm điểm. Trọng tâm là nâng cao chất lượng huấn luyện thực chất, sát với yêu cầu chiến đấu, bảo đảm an toàn tuyệt đối trong mọi chuyến bay và hoạt động kỹ thuật.",
+                "Qua đợt triển khai này, có thể thấy sự phối hợp giữa các cấp, các lực lượng ngày càng chặt chẽ và hiệu quả. Đây là cơ sở quan trọng để Sư đoàn tiếp tục hoàn thành tốt nhiệm vụ được giao, xứng đáng với truyền thống vẻ vang của đơn vị qua các thời kỳ cách mạng.",
+                "Tại phần kết luận, lãnh đạo Sư đoàn yêu cầu các đơn vị tiếp tục quán triệt nghiêm túc các chỉ thị, mệnh lệnh cấp trên; chủ động đề xuất giải pháp đổi mới phương pháp huấn luyện; đồng thời thường xuyên tổng kết, rút kinh nghiệm để công tác ngày càng đi vào chiều sâu và đạt hiệu quả cao hơn."
+            };
+
+            // Lấy 8 đoạn để bài đạt khoảng 500-600 từ.
+            var picked = paragraphs.OrderBy(_ => random.Next()).Take(8);
+            return string.Join("\n\n", picked);
         }
 
         private async Task<Dictionary<string, Guid>> EnsureCategories(DateTime now)

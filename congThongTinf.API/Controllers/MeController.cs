@@ -1,4 +1,6 @@
+using congThongTinf.Infrastructure.Interfaces;
 using congThongTinf.Service.DTOs;
+using congThongTinf.Service.Interfaces;
 using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,12 +13,39 @@ namespace congThongTinf.API.Controllers;
 [Authorize]
 public class MeController : ControllerBase
 {
+    private readonly IAdminService _adminService;
+    private readonly IClaimsService _claimsService;
+
+    public MeController(IAdminService adminService, IClaimsService claimsService)
+    {
+        _adminService = adminService;
+        _claimsService = claimsService;
+    }
+
+    [HttpGet("details")]
+    [ProducesResponseType(typeof(ApiResult<UserDto>), 200)]
+    [ProducesResponseType(typeof(ApiResult<UserDto>), 401)]
+    [ProducesResponseType(typeof(ApiResult<UserDto>), 404)]
+    public async Task<IActionResult> GetCurrentUserDetails()
+    {
+        try
+        {
+            var result = await _adminService.GetUserDetailsByIdAsync(_claimsService.CurrentUserId);
+            return Ok(ApiResult<UserDto>.Success(result!, "200", "Lấy thông tin tài khoản hiện tại thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<UserDto>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
     [HttpGet("role")]
     [ProducesResponseType(typeof(ApiResult<object>), 200)]
     [ProducesResponseType(typeof(ApiResult<object>), 401)]
     public IActionResult GetCurrentRole()
     {
-
         try
         {
             var role = User.FindFirstValue(ClaimTypes.Role);
@@ -32,8 +61,6 @@ public class MeController : ControllerBase
             var errorResponse = ExceptionUtils.CreateErrorResponse<UserDto>(ex);
             return StatusCode(statusCode, errorResponse);
         }
-
-
     }
 
     [HttpGet("check-admin")]
@@ -60,6 +87,5 @@ public class MeController : ControllerBase
             var errorResponse = ExceptionUtils.CreateErrorResponse<UserDto>(ex);
             return StatusCode(statusCode, errorResponse);
         }
-
     }
 }
