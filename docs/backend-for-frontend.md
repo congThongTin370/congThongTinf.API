@@ -9,6 +9,8 @@ Docker Compose publish API ra cổng `5000` (container lắng nghe `8080`).
 
 Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
+Ngoại lệ: upload file dùng `multipart/form-data` (`POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, …).
+
 ## Hệ thống
 
 Cổng thông tin nội bộ Sư đoàn Không quân 370. Backend là ASP.NET Core 10, PostgreSQL, kiến trúc phân lớp:
@@ -29,16 +31,20 @@ Entity đã có trong database:
 - `User`, `Role`
 - `News`, `Category`
 - `Document`
+- `Banner`
 
 API đã mở:
 
 - Auth: đăng nhập, đăng xuất, admin tạo tài khoản phóng viên
-- Me: đọc role của token, kiểm tra admin
+- Me: đọc profile/role của token, kiểm tra admin
 - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
 - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
+- Document: lấy danh sách có phân trang, admin upload tài liệu nội bộ
+- Admin: upload web banner
+- Blob: endpoint test upload/xóa file Cloudflare R2
 - System: seed / xóa dữ liệu local
 
-Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), văn bản nội bộ (`Document`).
+Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, lấy chi tiết / xóa tài liệu.
 
 ## Vai trò
 
@@ -46,7 +52,7 @@ Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết
 
 | Giá trị | Số | Quyền đang gắn trên API |
 | --- | --- | --- |
-| `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. Tạo, sửa, xóa danh mục. |
+| `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. Tạo, sửa, xóa danh mục. Upload banner. Upload tài liệu nội bộ. |
 | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
 Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -200,9 +206,13 @@ Thành công: HTTP `200`, `value.data` là `UserDto`, `roleName` = `1`.
 
 Journalist gọi endpoint này bị middleware chặn HTTP `403` trước khi vào action.
 
+`GET /api/me/details` — mọi token hợp lệ.
+
+Thành công: HTTP `200`, `value.data` là `UserDto` (cùng shape với `user` khi login). User trong token không còn trong DB hoặc `isActive == false`: HTTP `404`.
+
 ## Envelope `ApiResult<T>`
 
-Mọi action auth, me, news, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+Mọi action auth, me, news, category, documents, admin banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
 
 Thành công:
 
@@ -243,10 +253,10 @@ Cách đọc response:
 
 | Helper | HTTP | Ý nghĩa trong hệ thống này |
 | --- | --- | --- |
-| `BadRequest` | 400 | Thiếu field, khoảng ngày không hợp lệ |
+| `BadRequest` | 400 | Thiếu field, khoảng ngày không hợp lệ, sai loại file upload |
 | `Unauthorized` | 401 | Sai mật khẩu khi login |
 | `Forbidden` | 403 | Đúng danh tính nhưng không được làm: tài khoản khóa, không phải admin khi tạo phóng viên |
-| `NotFound` | 404 | Không thấy user, role, email login |
+| `NotFound` | 404 | Không thấy user, role, email login, danh mục, bài báo |
 | `Conflict` | 409 | Trùng email hoặc username |
 | `Internal` | 500 | Lỗi hệ thống chủ động |
 | Exception thường | 500 | Lỗi không gắn status |
@@ -274,7 +284,7 @@ Xóa là **xóa mềm**: `DELETE` chỉ đặt `isActive = false`, bản ghi v�
 
 ### Danh sách
 
-`GET /api/categories` — cần token, mọi role.
+`GET /api/categories` — public, không cần token.
 
 Chỉ trả danh mục đang active, sắp xếp theo `displayOrder` tăng dần, sau đó theo `name`. Không phân trang.
 
@@ -282,7 +292,7 @@ Thành công: HTTP `200`, `value.data` là mảng `CategoryDto`.
 
 ### Chi tiết
 
-`GET /api/categories/{id}` — cần token, mọi role.
+`GET /api/categories/{id}` — public, không cần token.
 
 - Thành công: HTTP `200`, `value.data` là `CategoryDto`.
 - Không tồn tại hoặc đã xóa: HTTP `404`, `Không tìm thấy danh mục.`
@@ -480,7 +490,140 @@ Role được lấy từ DB theo `userId` trong token (qua `AdminService.GetUser
 | `createdAt`, `updatedAt` | datetime UTC |
 | `viewCount` | number |
 
-`DocumentCategory` (chưa có API): `General=0`, `Policy=1`, `Procedure=2`, `Report=3`, `Guideline=4`.
+## Document
+
+Tài liệu nội bộ sư đoàn. File lưu trên Cloudflare R2, metadata lưu bảng `Documents`. Giới hạn kích thước file **10 MB** (cùng rule với `BlobService`).
+
+`DocumentCategory` là số:
+
+| Tên | Số |
+| --- | --- |
+| `General` | 0 |
+| `Policy` | 1 |
+| `Procedure` | 2 |
+| `Report` | 3 |
+| `Guideline` | 4 |
+
+### Danh sách
+
+`GET /api/documents` — public, không cần token.
+
+Query:
+
+| Param | Kiểu | Mặc định | Rule |
+| --- | --- | --- | --- |
+| `pageIndex` | number, optional | `1` | Trang bắt đầu từ `1`. `0` = trả toàn bộ, bỏ `Skip`/`Take` |
+| `pageSize` | number, optional | `10` | Nếu `<= 0` server gán lại `10` |
+| `search` | string, optional | — | Không phân biệt hoa thường, khớp `title`, `fileName`, hoặc `description` |
+| `category` | number, optional | — | Lọc đúng `DocumentCategory`. Giá trị không thuộc enum: HTTP `400`, `Danh mục tài liệu không hợp lệ.` |
+
+Sort `CreatedAt` giảm dần.
+
+`Pagination<T>` kế thừa `List<T>`. System.Text.Json serialize `IEnumerable` thành **JSON array**, nên `value.data` là mảng `DocumentDto` của trang hiện tại. Các field `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, `hasNext` **không** có trong JSON. Frontend tự giữ `pageIndex`/`pageSize` đã gửi.
+
+Thành công: HTTP `200`, message `Lấy danh sách tài liệu nội bộ thành công.`
+
+Download: dùng `fileUrl` (URL public R2) và `fileName`. Không có endpoint download riêng.
+
+### Upload
+
+`POST /api/documents` — token role `Admin`. `Content-Type: multipart/form-data`.
+
+| Field | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `file` | Có | Phần mở rộng: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.txt` |
+| `title` | Không | Trống thì lấy tên file bỏ phần mở rộng |
+| `description` | Không | Mặc định chuỗi rỗng |
+| `category` | Không | Mặc định `0` (`General`) |
+
+Thành công: HTTP `200`, `value.data` là `DocumentDto`, message `Tải tài liệu nội bộ thành công.`
+
+- Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
+- Sai loại file: HTTP `400`, `Tài liệu nội bộ phải là pdf, doc, docx, xls, xlsx, ppt, pptx hoặc txt.`
+- `category` không thuộc enum: HTTP `400`, `Danh mục tài liệu không hợp lệ.`
+- File lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+- Token không phải Admin: HTTP `403` (framework, không có envelope).
+- User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
+
+Không có API sửa, xóa, hoặc lấy chi tiết theo id.
+
+### DocumentDto
+
+| Field | Kiểu |
+| --- | --- |
+| `id` | Guid |
+| `title`, `description` | string |
+| `fileUrl` | string, URL public để xem/tải |
+| `fileName` | string, tên file gốc |
+| `fileType` | string, content type |
+| `fileSize` | number, bytes |
+| `category` | number `0..4` |
+| `uploadedByUserId` | Guid |
+| `uploadedByUserName` | string hoặc null, `User.FullName` của người upload (list có include; upload mới thường `null`) |
+| `createdAt` | datetime UTC |
+
+## Banner
+
+Banner trang chủ. File ảnh lưu R2 folder `banners`, metadata bảng `Banners`. Chưa có API lấy danh sách / chi tiết / xóa.
+
+`POST /api/admin/banners` — token role `Admin`. `Content-Type: multipart/form-data`. Controller gắn `[Authorize(Roles = "Admin")]` trên cả class.
+
+| Field | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `file` | Có | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` |
+| `title` | Không | Trống thì lấy tên file bỏ phần mở rộng |
+| `displayOrder` | Không | Mặc định `0` |
+| `isActive` | Không | Mặc định `true` |
+
+Thành công: HTTP `200`, `value.data` là `BannerDto`, message `Tải banner thành công.`
+
+- Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
+- Sai loại ảnh: HTTP `400`, `Banner phải là ảnh (jpg, jpeg, png, webp, gif).`
+- File lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+- Token không phải Admin: HTTP `403` (framework).
+- User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
+
+Upload tạo bản ghi mới, không thay banner cũ.
+
+### BannerDto
+
+| Field | Kiểu |
+| --- | --- |
+| `id` | Guid |
+| `title` | string |
+| `imageUrl` | string, URL public ảnh |
+| `fileName` | string |
+| `fileType` | string |
+| `fileSize` | number, bytes |
+| `displayOrder` | number |
+| `isActive` | bool |
+| `uploadedByUserId` | Guid |
+| `createdAt` | datetime UTC |
+
+## Blob (test R2)
+
+Endpoint thử Cloudflare R2. **Không** có `[Authorize]`. Không nên đưa vào UI người dùng.
+
+`POST /api/blobs/upload` — `multipart/form-data`.
+
+| Field / query | Ghi chú |
+| --- | --- |
+| `file` | Bắt buộc, tối đa 10 MB |
+| `folder` | Query, mặc định `"test"` |
+
+Thành công: HTTP `200`, `value.data`:
+
+| Field | Kiểu |
+| --- | --- |
+| `key` | string, object key trên R2 |
+| `url` | string, URL public |
+| `size` | number |
+| `contentType` | string |
+
+Thiếu file: HTTP `400`, `File is required.`  
+Quá 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+
+`DELETE /api/blobs?key={key}` — xóa object theo key. Thành công: `value.data` = `true`. Key rỗng: HTTP `400`, `Key is required.`
 
 ## System API local
 
@@ -489,7 +632,7 @@ Role được lấy từ DB theo `userId` trong token (qua `AdminService.GetUser
 | POST | `/api/system/seed-all-data` | Xóa toàn bộ rồi seed role, 2 admin, category, bài mẫu |
 | POST | `/api/system/seed-users-roles` | Thêm role và admin nếu chưa có |
 | POST | `/api/system/seed-news` | Thêm category và 4 bài mẫu |
-| POST | `/api/system/clear-database` | Xóa News, Documents, Users, Roles, Categories |
+| POST | `/api/system/clear-database` | Xóa News, Banners, Documents, Users, Roles, Categories |
 
 Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `newsCount`).
 
@@ -501,12 +644,16 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 
 ## Việc frontend nên làm
 
-- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `/api/categories/*`, và `POST`/`PUT`/`DELETE` `/api/news`.
+- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/admin/banners`, `POST /api/documents`.
+- `GET /api/news`, `GET /api/categories`, `GET /api/documents` là public.
+- Upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON.
 - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
 - Đọc payload ở `response.value.data`.
 - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.
 - Map `user.roleName`: `0` Admin, `1` Journalist.
 - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
+- Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
+- `GET /api/documents`: `value.data` là **mảng** item của trang; tự giữ `pageIndex`/`pageSize`. Tải file bằng `fileUrl`.
 - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-- Ẩn tạo phóng viên và ẩn gọi `check-admin` khi role không phải `Admin`.
-- Coi `/api/system/*` là công cụ seed local, không đưa vào UI người dùng.
+- Ẩn tạo phóng viên, upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
+- Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

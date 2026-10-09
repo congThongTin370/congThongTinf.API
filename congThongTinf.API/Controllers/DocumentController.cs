@@ -21,7 +21,6 @@ public class DocumentController : ControllerBase
         _claimsService = claimsService;
     }
 
-    [Authorize]
     [HttpGet]
     [ProducesResponseType(typeof(ApiResult<Pagination<DocumentDto>>), 200)]
     public async Task<IActionResult> GetAll([FromQuery] DocumentQueryParameter param)
