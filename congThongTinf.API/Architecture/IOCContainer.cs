@@ -82,6 +82,34 @@ public static class IocContainer
     //    return services;
     //}
 
+    public static IServiceCollection SetupCloudflareR2(this IServiceCollection services)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", true, true)
+            .AddJsonFile("appsettings.Development.json", true, true)
+            .AddEnvironmentVariables()
+            .Build();
+
+        services.Configure<CloudflareR2Options>(configuration.GetSection(CloudflareR2Options.SectionName));
+
+        var r2 = configuration.GetSection(CloudflareR2Options.SectionName).Get<CloudflareR2Options>()
+                 ?? throw new InvalidOperationException("CloudflareR2 configuration section is missing.");
+
+        services.AddSingleton<Amazon.S3.IAmazonS3>(_ =>
+        {
+            var s3Config = new Amazon.S3.AmazonS3Config
+            {
+                ServiceURL = r2.ServiceUrl,
+                ForcePathStyle = true,
+                AuthenticationRegion = "auto"
+            };
+            return new Amazon.S3.AmazonS3Client(r2.AccessKey, r2.SecretKey, s3Config);
+        });
+
+        return services;
+    }
+
     public static IServiceCollection SetupVnpay(this IServiceCollection services)
     {
         // Xây dựng IConfiguration từ các nguồn cấu hình
@@ -125,6 +153,7 @@ public static class IocContainer
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAuthService, AuthService>();
+        services.SetupCloudflareR2();
         services.AddScoped<IBlobService, BlobService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<INewsService, NewsService>();
