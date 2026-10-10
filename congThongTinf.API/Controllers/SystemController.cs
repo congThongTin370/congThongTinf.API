@@ -35,6 +35,7 @@ namespace congThongTinf.API.Controllers
                     Message = "Data seeded successfully.",
                     RoleCount = seededUsersRoles.RoleCount,
                     AdminCount = seededUsersRoles.AdminCount,
+                    JournalistCount = seededUsersRoles.JournalistCount,
                     NewsCount = seededCount
                 }));
             }
@@ -58,9 +59,10 @@ namespace congThongTinf.API.Controllers
                 var seeded = await SeedUsersRoles();
                 return Ok(ApiResult<object>.Success(new
                 {
-                    Message = "Roles and admin accounts seeded successfully.",
+                    Message = "Roles, admin and journalist accounts seeded successfully.",
                     RoleCount = seeded.RoleCount,
-                    AdminCount = seeded.AdminCount
+                    AdminCount = seeded.AdminCount,
+                    JournalistCount = seeded.JournalistCount
                 }));
             }
             catch (DbUpdateException dbEx)
@@ -160,7 +162,7 @@ namespace congThongTinf.API.Controllers
             });
         }
 
-        private async Task<(int RoleCount, int AdminCount)> SeedUsersRoles()
+        private async Task<(int RoleCount, int AdminCount, int JournalistCount)> SeedUsersRoles()
         {
             var now = DateTime.UtcNow;
             var roles = new (RoleType Name, string Description)[]
@@ -196,21 +198,50 @@ namespace congThongTinf.API.Controllers
                 await _context.SaveChangesAsync();
 
             var adminRole = await _context.Roles.FirstAsync(r => r.Name == RoleType.Admin);
-            var admins = new (string Username, string Email, string FullName)[]
-            {
-                ("admin", "admin@370.local", "Quản trị viên 1"),
-                ("admin2", "admin2@370.local", "Quản trị viên 2")
-            };
+            var journalistRole = await _context.Roles.FirstAsync(r => r.Name == RoleType.Journalist);
+            var hasher = new PasswordHasher();
 
-            var emails = admins.Select(a => a.Email).ToArray();
+            var addedAdmins = await SeedUsers(
+                now,
+                adminRole.Id,
+                hasher,
+                "Admin@123",
+                new (string Username, string Email, string FullName)[]
+                {
+                    ("admin", "admin@370.local", "Quản trị viên 1"),
+                    ("admin2", "admin2@370.local", "Quản trị viên 2")
+                });
+
+            var addedJournalists = await SeedUsers(
+                now,
+                journalistRole.Id,
+                hasher,
+                "123321@",
+                new (string Username, string Email, string FullName)[]
+                {
+                    ("nhabao1", "nhabao1@gmail.com", "Trần Vũ Phương Nam"),
+                    ("nhabao2", "nhabao2@gmail.com", "Nhà báo 2")
+                });
+
+            _logger.Success($"Đã seed {addedRoles} vai trò, {addedAdmins} tài khoản admin và {addedJournalists} tài khoản phóng viên.");
+            return (addedRoles, addedAdmins, addedJournalists);
+        }
+
+        private async Task<int> SeedUsers(
+            DateTime now,
+            Guid roleId,
+            PasswordHasher hasher,
+            string password,
+            (string Username, string Email, string FullName)[] users)
+        {
+            var emails = users.Select(u => u.Email).ToArray();
             var existingEmails = await _context.Users
                 .Where(u => emails.Contains(u.Email))
                 .Select(u => u.Email)
                 .ToListAsync();
 
-            var hasher = new PasswordHasher();
-            var addedAdmins = 0;
-            foreach (var item in admins)
+            var added = 0;
+            foreach (var item in users)
             {
                 if (existingEmails.Contains(item.Email))
                     continue;
@@ -220,21 +251,20 @@ namespace congThongTinf.API.Controllers
                     Id = Guid.NewGuid(),
                     Username = item.Username,
                     Email = item.Email,
-                    PasswordHash = hasher.HashPassword("Admin@123") ?? string.Empty,
+                    PasswordHash = hasher.HashPassword(password) ?? string.Empty,
                     FullName = item.FullName,
-                    RoleId = adminRole.Id,
+                    RoleId = roleId,
                     IsActive = true,
                     CreatedAt = now,
                     UpdatedAt = now
                 });
-                addedAdmins++;
+                added++;
             }
 
-            if (addedAdmins > 0)
+            if (added > 0)
                 await _context.SaveChangesAsync();
 
-            _logger.Success($"Đã seed {addedRoles} vai trò và {addedAdmins} tài khoản admin.");
-            return (addedRoles, addedAdmins);
+            return added;
         }
 
         private async Task<int> SeedNews()
@@ -456,10 +486,10 @@ namespace congThongTinf.API.Controllers
             author = new User
             {
                 Id = Guid.NewGuid(),
-                Username = "journalist",
-                Email = "journalist@370.local",
-                PasswordHash = new PasswordHasher().HashPassword("Journalist@123") ?? string.Empty,
-                FullName = "Phóng viên Sư đoàn",
+                Username = "nhabao1",
+                Email = "nhabao1@gmail.com",
+                PasswordHash = new PasswordHasher().HashPassword("123321@") ?? string.Empty,
+                FullName = "Trần Vũ Phương Nam",
                 RoleId = role.Id,
                 IsActive = true,
                 CreatedAt = now,

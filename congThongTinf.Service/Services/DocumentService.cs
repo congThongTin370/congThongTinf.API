@@ -17,17 +17,20 @@ public class DocumentService : IDocumentService
     };
 
     private readonly IBlobService _blobService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
 
     public DocumentService(
         IUnitOfWork unitOfWork,
         ILoggerService logger,
-        IBlobService blobService)
+        IBlobService blobService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _blobService = blobService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<Pagination<DocumentDto>> GetAllDocumentsAsync(DocumentQueryParameter param)
@@ -123,6 +126,31 @@ public class DocumentService : IDocumentService
         return ToDocumentDto(document);
     }
 
+    public async Task<BlobDownloadResult> DownloadDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        _logger.Info($"[DownloadDocumentAsync] Download document {documentId}.");
+
+        var document = await _unitOfWork.Documents.GetByIdAsync(documentId);
+        if (document == null)
+        {
+            _logger.Warn($"[DownloadDocumentAsync] Document {documentId} not found.");
+            throw ErrorHelper.NotFound($"Tài liệu với ID {documentId} không tồn tại.");
+        }
+
+        var key = _blobService.GetKeyFromPublicUrl(document.FileUrl);
+        var download = await _blobService.DownloadFileAsync(key, cancellationToken);
+        download.FileName = string.IsNullOrWhiteSpace(document.FileName)
+            ? Path.GetFileName(key)
+            : document.FileName;
+
+        if (string.IsNullOrWhiteSpace(download.ContentType) || download.ContentType == "application/octet-stream")
+            download.ContentType = string.IsNullOrWhiteSpace(document.FileType)
+                ? "application/octet-stream"
+                : document.FileType;
+
+        return download;
+    }
+
     private async Task EnsureActiveUserAsync(Guid userId)
     {
         if (userId == Guid.Empty)
@@ -168,7 +196,7 @@ public class DocumentService : IDocumentService
         return value[..maxLength];
     }
 
-    private static DocumentDto ToDocumentDto(Document document)
+    private DocumentDto ToDocumentDto(Document document)
     {
         return new DocumentDto
         {
@@ -176,6 +204,7 @@ public class DocumentService : IDocumentService
             Title = document.Title,
             Description = document.Description,
             FileUrl = document.FileUrl,
+            DownloadUrl = BuildDownloadUrl(document.Id),
             FileName = document.FileName,
             FileType = document.FileType,
             FileSize = document.FileSize,
@@ -184,5 +213,16 @@ public class DocumentService : IDocumentService
             UploadedByUserName = document.UploadedByUser?.FullName,
             CreatedAt = document.CreatedAt
         };
+    }
+
+    private string BuildDownloadUrl(Guid documentId)
+    {
+        var request = _httpContextAccessor.HttpContext?.Request;
+        var relativePath = $"/api/documents/{documentId}/download";
+        if (request == null)
+            return relativePath;
+
+        var pathBase = request.PathBase.HasValue ? request.PathBase.Value.TrimEnd('/') : string.Empty;
+        return $"{request.Scheme}://{request.Host}{pathBase}{relativePath}";
     }
 }

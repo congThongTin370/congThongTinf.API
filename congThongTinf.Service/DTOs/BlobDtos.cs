@@ -14,3 +14,22 @@ public class UploadFileResultDto
     public long Size { get; set; }
     public string ContentType { get; set; } = string.Empty;
 }
+
+public class BlobDownloadResult : IAsyncDisposable
+{
+    public required Stream Stream { get; init; }
+
+    public string ContentType { get; set; } = "application/octet-stream";
+
+    public string FileName { get; set; } = string.Empty;
+
+    public Func<ValueTask>? OnDispose { get; init; }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (OnDispose != null)
+            await OnDispose();
+        else
+            await Stream.DisposeAsync();
+    }
+}

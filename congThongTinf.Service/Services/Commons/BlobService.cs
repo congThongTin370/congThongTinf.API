@@ -136,6 +136,56 @@ namespace congThongTinf.Service.Services.Commons
             return $"{_options.PublicUrl.TrimEnd('/')}/{key}";
         }
 
+        public string GetKeyFromPublicUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                throw CreateValidationException("Url is required.");
+
+            var prefix = _options.PublicUrl.TrimEnd('/') + "/";
+            if (url.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return url[prefix.Length..];
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                return uri.AbsolutePath.TrimStart('/');
+
+            throw CreateValidationException("Url is not a valid R2 public URL.");
+        }
+
+        public async Task<BlobDownloadResult> DownloadFileAsync(string key, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                _logger.LogWarning("Download rejected: key is empty.");
+                throw CreateValidationException("Key is required.");
+            }
+
+            _logger.LogInformation("Downloading object '{Key}' from bucket '{Bucket}'...", key, _options.BucketName);
+
+            try
+            {
+                var response = await _s3Client.GetObjectAsync(_options.BucketName, key, cancellationToken);
+                return new BlobDownloadResult
+                {
+                    Stream = response.ResponseStream,
+                    ContentType = string.IsNullOrWhiteSpace(response.Headers.ContentType)
+                        ? "application/octet-stream"
+                        : response.Headers.ContentType,
+                    OnDispose = () =>
+                    {
+                        response.Dispose();
+                        return ValueTask.CompletedTask;
+                    }
+                };
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("R2 object '{Key}' was not found.", key);
+                var notFound = new InvalidOperationException("File not found.");
+                notFound.Data["StatusCode"] = 404;
+                throw notFound;
+            }
+        }
+
         private static Exception CreateValidationException(string message)
         {
             var ex = new ArgumentException(message);

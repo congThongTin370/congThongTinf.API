@@ -39,12 +39,12 @@ API đã mở:
 - Me: đọc profile/role của token, kiểm tra admin
 - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
 - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
-- Document: lấy danh sách có phân trang, admin upload tài liệu nội bộ
+- Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
 - Admin: upload web banner
 - Blob: endpoint test upload/xóa file Cloudflare R2
 - System: seed / xóa dữ liệu local
 
-Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, lấy chi tiết / xóa tài liệu.
+Chưa có API: dashboard, quản lý user đầy đủ, xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, sửa/xóa tài liệu.
 
 ## Vai trò
 
@@ -92,8 +92,10 @@ Claim trong token:
 | --- | --- | --- |
 | `admin@370.local` | `Admin@123` | Admin |
 | `admin2@370.local` | `Admin@123` | Admin |
+| `nhabao1@gmail.com` | `123321@` | Journalist |
+| `nhabao2@gmail.com` | `123321@` | Journalist |
 
-`seed-news` chỉ tạo `journalist@370.local` / `Journalist@123` khi database chưa có user nào. Seed user trước thì bài mẫu gắn vào user có sẵn, thường là admin.
+`seed-news` chỉ tạo thêm `nhabao1@gmail.com` khi database chưa có user nào. Seed user trước thì bài mẫu gắn vào user đang active, gồm cả admin và phóng viên.
 
 Các endpoint `/api/system/*` không có `[Authorize]`. Chỉ dùng cho môi trường local.
 
@@ -212,7 +214,9 @@ Thành công: HTTP `200`, `value.data` là `UserDto` (cùng shape với `user` k
 
 ## Envelope `ApiResult<T>`
 
-Mọi action auth, me, news, category, documents, admin banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+Mọi action auth, me, news, category, documents (trừ download file), admin banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+
+Ngoại lệ: `GET /api/documents/{id}/download` trả **binary file**, không bọc `ApiResult`. Thành công thì body là bytes, header `Content-Disposition: attachment`.
 
 Thành công:
 
@@ -521,9 +525,65 @@ Sort `CreatedAt` giảm dần.
 
 `Pagination<T>` kế thừa `List<T>`. System.Text.Json serialize `IEnumerable` thành **JSON array**, nên `value.data` là mảng `DocumentDto` của trang hiện tại. Các field `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, `hasNext` **không** có trong JSON. Frontend tự giữ `pageIndex`/`pageSize` đã gửi.
 
-Thành công: HTTP `200`, message `Lấy danh sách tài liệu nội bộ thành công.`
+Thành công: HTTP `200`, message `Lấy danh sách tài liệu nội bộ thành công.` Mỗi phần tử có `downloadUrl` tuyệt đối (scheme + host của request hiện tại).
 
-Download: dùng `fileUrl` (URL public R2) và `fileName`. Không có endpoint download riêng.
+Ví dụ một phần tử trong `value.data[]`:
+
+```json
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "title": "Nội quy sư đoàn",
+  "description": "",
+  "fileUrl": "https://<r2-public>/documents/ab12cd34.pdf",
+  "downloadUrl": "http://localhost:5000/api/documents/3fa85f64-5717-4562-b3fc-2c963f66afa6/download",
+  "fileName": "noi-quy.pdf",
+  "fileType": "application/pdf",
+  "fileSize": 102400,
+  "category": 1,
+  "uploadedByUserId": "00000000-0000-0000-0000-000000000000",
+  "uploadedByUserName": "Quản trị viên 1",
+  "createdAt": "2026-10-09T00:00:00Z"
+}
+```
+
+`POST /api/documents` thành công cũng trả `DocumentDto` cùng shape, gồm `downloadUrl`.
+
+### Tải file
+
+`GET /api/documents/{id}/download` — public. **Không** trả `ApiResult`.
+
+Thành công HTTP `200`:
+
+| Header | Giá trị |
+| --- | --- |
+| `Content-Type` | `fileType` của tài liệu, ví dụ `application/pdf` |
+| `Content-Disposition` | `attachment; filename="noi-quy.pdf"` (tên gốc `fileName`) |
+
+Body là bytes của file trên R2. Đây chính là URL trong `downloadUrl`.
+
+UI gắn `downloadUrl` vào nút. Click = điều hướng tới API, trình duyệt lưu file. Không `fetch`, không gắn JWT.
+
+HTML:
+
+```html
+<a href="http://localhost:5000/api/documents/{id}/download" download="noi-quy.pdf">Tải xuống</a>
+```
+
+Razor:
+
+```cshtml
+<a class="btn" href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>
+```
+
+| Field | Dùng khi |
+| --- | --- |
+| `downloadUrl` | `href` của nút Tải xuống |
+| `fileName` | attribute `download` (gợi ý tên file) |
+| `fileUrl` | Xem inline (PDF mở tab mới). **Không** dùng cho nút download |
+
+- Id không tồn tại: HTTP `404`, envelope `Tài liệu với ID {id} không tồn tại.`
+- Bản ghi còn, object R2 mất: HTTP `404`, envelope `File not found.`
+- CORS không áp dụng cho click thẻ `<a>` (top-level navigation).
 
 ### Upload
 
@@ -545,7 +605,7 @@ Thành công: HTTP `200`, `value.data` là `DocumentDto`, message `Tải tài li
 - Token không phải Admin: HTTP `403` (framework, không có envelope).
 - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
 
-Không có API sửa, xóa, hoặc lấy chi tiết theo id.
+Không có API sửa, xóa, hoặc lấy chi tiết JSON theo id. Tải file dùng `GET /api/documents/{id}/download`.
 
 ### DocumentDto
 
@@ -553,8 +613,9 @@ Không có API sửa, xóa, hoặc lấy chi tiết theo id.
 | --- | --- |
 | `id` | Guid |
 | `title`, `description` | string |
-| `fileUrl` | string, URL public để xem/tải |
-| `fileName` | string, tên file gốc |
+| `fileUrl` | string, URL public R2 (xem file, PDF mở trên trình duyệt) |
+| `downloadUrl` | string, ví dụ `http://localhost:5000/api/documents/{id}/download`. Gắn vào `href` của nút Tải xuống |
+| `fileName` | string, tên file gốc, dùng cho attribute `download` |
 | `fileType` | string, content type |
 | `fileSize` | number, bytes |
 | `category` | number `0..4` |
@@ -629,12 +690,12 @@ Quá 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
 
 | Method | Path | Thành công |
 | --- | --- | --- |
-| POST | `/api/system/seed-all-data` | Xóa toàn bộ rồi seed role, 2 admin, category, bài mẫu |
-| POST | `/api/system/seed-users-roles` | Thêm role và admin nếu chưa có |
+| POST | `/api/system/seed-all-data` | Xóa toàn bộ rồi seed role, 2 admin, 2 phóng viên, category, bài mẫu |
+| POST | `/api/system/seed-users-roles` | Thêm role, admin và phóng viên nếu chưa có |
 | POST | `/api/system/seed-news` | Thêm category và 4 bài mẫu |
 | POST | `/api/system/clear-database` | Xóa News, Banners, Documents, Users, Roles, Categories |
 
-Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `newsCount`).
+Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `journalistCount`, `newsCount`).
 
 `seed-all-data` xóa dữ liệu trước. Gọi lại sẽ mất tài khoản phóng viên đã tạo.
 
@@ -645,7 +706,7 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 ## Việc frontend nên làm
 
 - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/admin/banners`, `POST /api/documents`.
-- `GET /api/news`, `GET /api/categories`, `GET /api/documents` là public.
+- `GET /api/news`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
 - Upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON.
 - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
 - Đọc payload ở `response.value.data`.
@@ -653,7 +714,8 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 - Map `user.roleName`: `0` Admin, `1` Journalist.
 - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
 - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
-- `GET /api/documents`: `value.data` là **mảng** item của trang; tự giữ `pageIndex`/`pageSize`. Tải file bằng `fileUrl`.
+- `GET /api/documents`: `value.data` là **mảng** item của trang; tự giữ `pageIndex`/`pageSize`. Mỗi item có `downloadUrl`.
+- Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
 - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
 - Ẩn tạo phóng viên, upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
 - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

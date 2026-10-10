@@ -38,6 +38,29 @@ public class DocumentController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Streams the file with Content-Disposition: attachment so the browser downloads it.
+    /// Use as the href of a download button. Do not wrap in ApiResult.
+    /// </summary>
+    [HttpGet("{id:guid}/download")]
+    [ProducesResponseType(typeof(FileResult), 200)]
+    [ProducesResponseType(typeof(ApiResult<BlobDownloadResult>), 404)]
+    public async Task<IActionResult> Download(Guid id)
+    {
+        try
+        {
+            var download = await _documentService.DownloadDocumentAsync(id, HttpContext.RequestAborted);
+            HttpContext.Response.RegisterForDisposeAsync(download);
+            return File(download.Stream, download.ContentType, download.FileName);
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<BlobDownloadResult>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [Consumes("multipart/form-data")]

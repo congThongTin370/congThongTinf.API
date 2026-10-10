@@ -21,5 +21,15 @@ namespace congThongTinf.Service.Interfaces.Commons
         /// Returns a publicly accessible URL for an object key.
         /// </summary>
         string GetPublicUrl(string key);
+
+        /// <summary>
+        /// Opens an object stream from R2. Caller must dispose the result.
+        /// </summary>
+        Task<BlobDownloadResult> DownloadFileAsync(string key, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Maps a public object URL back to the storage key.
+        /// </summary>
+        string GetKeyFromPublicUrl(string url);
     }
 }

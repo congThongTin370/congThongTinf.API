@@ -7,4 +7,5 @@ public interface IDocumentService
 {
     Task<Pagination<DocumentDto>> GetAllDocumentsAsync(DocumentQueryParameter param);
     Task<DocumentDto> UploadInternalDocumentAsync(Guid currentUserId, UploadDocumentForm form, CancellationToken cancellationToken = default);
+    Task<BlobDownloadResult> DownloadDocumentAsync(Guid documentId, CancellationToken cancellationToken = default);
 }
