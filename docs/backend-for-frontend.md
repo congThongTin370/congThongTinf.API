@@ -396,7 +396,7 @@
 
   Danh sách sort `CreatedAt` giảm dần. Trả mọi status, kể cả Draft và Pending.
 
-  `Pagination<T>` kế thừa `List<T>`. System.Text.Json serialize `IEnumerable` thành **JSON array**, nên `value.data` là mảng `NewsDto` của trang hiện tại. Các field `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, `hasNext` **không** có trong JSON. Frontend tự giữ `pageIndex`/`pageSize` đã gửi.
+  `value.data` là object phân trang: `items` (mảng `NewsDto` của trang), `totalCount` (tổng số bản ghi sau filter), `currentPage`, `totalPages`, `pageSize`, `hasPrevious`, `hasNext`.
 
   ### Chi tiết
 
@@ -557,11 +557,11 @@
 
   Sort `CreatedAt` giảm dần.
 
-  `Pagination<T>` kế thừa `List<T>`. System.Text.Json serialize `IEnumerable` thành **JSON array**, nên `value.data` là mảng `DocumentDto` của trang hiện tại. Các field `currentPage`, `totalPages`, `pageSize`, `totalCount`, `hasPrevious`, `hasNext` **không** có trong JSON. Frontend tự giữ `pageIndex`/`pageSize` đã gửi.
+  `value.data` là object phân trang: `items` (mảng `DocumentDto` của trang), `totalCount` (tổng số bản ghi sau filter), `currentPage`, `totalPages`, `pageSize`, `hasPrevious`, `hasNext`.
 
   Thành công: HTTP `200`, message `Lấy danh sách tài liệu nội bộ thành công.` Mỗi phần tử có `downloadUrl` tuyệt đối (scheme + host của request hiện tại).
 
-  Ví dụ một phần tử trong `value.data[]`:
+  Ví dụ một phần tử trong `value.data.items[]`:
 
   ```json
   {
@@ -674,7 +674,7 @@
   | `roleName` | number, optional | — | `0` Admin, `1` Journalist. Giá trị không thuộc enum: HTTP `400`, `Vai trò không hợp lệ.` |
   | `desc` | bool, optional | `true` | Sort `CreatedAt` giảm dần khi `true`, tăng dần khi `false` |
 
-  `Pagination<T>` kế thừa `List<T>`. `value.data` là mảng `UserDto` của trang hiện tại. Frontend tự giữ `pageIndex`/`pageSize` đã gửi.
+  `value.data` là object phân trang: `items` (mảng `UserDto` của trang), `totalCount` (tổng số bản ghi sau filter), `currentPage`, `totalPages`, `pageSize`, `hasPrevious`, `hasNext`.
 
   Thành công: HTTP `200`, message `Lấy danh sách người dùng thành công.`
 
@@ -828,7 +828,7 @@
   - Map `user.roleName`: `0` Admin, `1` Journalist.
   - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
   - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
-  - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`: `value.data` là **mảng** item của trang; tự giữ `pageIndex`/`pageSize`. Tài liệu còn có `downloadUrl`.
+  - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
   - Ẩn tạo phóng viên, quản lý user (`/api/admin/users`), upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
