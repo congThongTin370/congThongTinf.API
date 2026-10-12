@@ -5,6 +5,7 @@ using congThongTinf.Service.Interfaces.Commons;
 using congThongTinf.Service.Mappers;
 using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace congThongTinf.Service.Services;
 
@@ -78,6 +79,15 @@ public class AdminService : IAdminService
         return user;
     }
 
+    public async Task<DashboardBannerStatsDto> GetBannerDashboardSnapshotAsync()
+    {
+        var banners = _unitOfWork.Banners.GetQueryable().AsNoTracking();
+        return new DashboardBannerStatsDto
+        {
+            Total = await banners.CountAsync(),
+            Active = await banners.CountAsync(b => b.IsActive)
+        };
+    }
 
     public async Task<BannerDto> UploadBannerAsync(Guid currentUserId, UploadBannerForm form, CancellationToken cancellationToken = default)
     {

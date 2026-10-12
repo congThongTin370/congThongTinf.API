@@ -12,4 +12,6 @@ public interface IAdminService
     Task<User?> GetUserById(Guid id, bool useCache = false);
 
     Task<BannerDto> UploadBannerAsync(Guid currentUserId, UploadBannerForm form, CancellationToken cancellationToken = default);
+
+    Task<DashboardBannerStatsDto> GetBannerDashboardSnapshotAsync();
 }

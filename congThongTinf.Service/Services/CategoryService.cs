@@ -33,6 +33,16 @@ public class CategoryService : ICategoryService
         return categories.Select(ToDto).ToList();
     }
 
+    public async Task<DashboardCategoryStatsDto> GetDashboardSnapshotAsync()
+    {
+        var categories = _unitOfWork.Categories.GetQueryable().AsNoTracking();
+        return new DashboardCategoryStatsDto
+        {
+            Total = await categories.CountAsync(),
+            Active = await categories.CountAsync(c => c.IsActive)
+        };
+    }
+
     public async Task<CategoryDto> GetCategoryByIdAsync(Guid id)
     {
         _logger.Info($"[GetCategoryById] Requests category {id}.");

@@ -14,4 +14,6 @@ public interface IUserService
     Task<UserDto> UpdateUserAsync(Guid id, UserUpdateDto dto);
 
     Task<bool> DeleteUserAsync(Guid currentUserId, Guid id);
+
+    Task<DashboardUserStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive);
 }

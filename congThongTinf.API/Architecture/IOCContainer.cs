@@ -160,6 +160,7 @@ public static class IocContainer
         services.AddScoped<INewsService, NewsService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IDocumentService, DocumentService>();
+        services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 
         services.AddHttpContextAccessor();

@@ -86,6 +86,104 @@ public class NewsService : INewsService
         return new Pagination<NewsDto>(result.Select(ToDto).ToList(), total, query.PageIndex, query.PageSize);
     }
 
+    public async Task<DashboardNewsStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive, int previewTake)
+    {
+        if (previewTake <= 0)
+            previewTake = 5;
+
+        var news = _unitOfWork.News.GetQueryable().AsNoTracking();
+
+        var statusCounts = await news
+            .GroupBy(n => n.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        int CountStatus(NewsStatus status) =>
+            statusCounts.FirstOrDefault(s => s.Status == status)?.Count ?? 0;
+
+        var byCategory = await news
+            .GroupBy(n => new { n.CategoryId, Name = n.Category != null ? n.Category.Name : string.Empty })
+            .Select(g => new DashboardCategoryCountDto
+            {
+                CategoryId = g.Key.CategoryId,
+                CategoryName = g.Key.Name,
+                Count = g.Count()
+            })
+            .OrderByDescending(x => x.Count)
+            .ToListAsync();
+
+        var createdDates = await news
+            .Where(n => n.CreatedAt >= from && n.CreatedAt < toExclusive)
+            .Select(n => n.CreatedAt)
+            .ToListAsync();
+
+        var publishedDates = await news
+            .Where(n => n.PublishedAt.HasValue && n.PublishedAt.Value >= from && n.PublishedAt.Value < toExclusive)
+            .Select(n => n.PublishedAt!.Value)
+            .ToListAsync();
+
+        var createdByDay = createdDates.GroupBy(d => d.Date).ToDictionary(g => g.Key, g => g.Count());
+        var publishedByDay = publishedDates.GroupBy(d => d.Date).ToDictionary(g => g.Key, g => g.Count());
+
+        var byDay = new List<DashboardCountByDayDto>();
+        for (var day = from.Date; day < toExclusive; day = day.AddDays(1))
+        {
+            byDay.Add(new DashboardCountByDayDto
+            {
+                Date = day,
+                Created = createdByDay.GetValueOrDefault(day),
+                Published = publishedByDay.GetValueOrDefault(day)
+            });
+        }
+
+        var pendingItems = await news
+            .Where(n => n.Status == NewsStatus.Pending)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(previewTake)
+            .Select(n => new DashboardNewsPreviewDto
+            {
+                Id = n.Id,
+                Title = n.Title,
+                AuthorName = n.Author != null ? n.Author.FullName : string.Empty,
+                CategoryName = n.Category != null ? n.Category.Name : string.Empty,
+                ViewCount = n.ViewCount,
+                CreatedAt = n.CreatedAt
+            })
+            .ToListAsync();
+
+        var topViewedItems = await news
+            .Where(n => n.Status == NewsStatus.Published)
+            .OrderByDescending(n => n.ViewCount)
+            .ThenByDescending(n => n.PublishedAt)
+            .Take(previewTake)
+            .Select(n => new DashboardNewsPreviewDto
+            {
+                Id = n.Id,
+                Title = n.Title,
+                AuthorName = n.Author != null ? n.Author.FullName : string.Empty,
+                CategoryName = n.Category != null ? n.Category.Name : string.Empty,
+                ViewCount = n.ViewCount,
+                CreatedAt = n.CreatedAt
+            })
+            .ToListAsync();
+
+        return new DashboardNewsStatsDto
+        {
+            Total = statusCounts.Sum(s => s.Count),
+            Draft = CountStatus(NewsStatus.Draft),
+            Pending = CountStatus(NewsStatus.Pending),
+            Published = CountStatus(NewsStatus.Published),
+            Archived = CountStatus(NewsStatus.Archived),
+            CreatedInRange = createdDates.Count,
+            PublishedInRange = publishedDates.Count,
+            TotalViews = await news.SumAsync(n => (int?)n.ViewCount) ?? 0,
+            ByCategory = byCategory,
+            ByDay = byDay,
+            PendingItems = pendingItems,
+            TopViewedItems = topViewedItems
+        };
+    }
+
     public async Task<NewsDto> GetNewsByIdAsync(Guid id)
     {
         _logger.Info($"[GetNewsById] Requests news {id}");

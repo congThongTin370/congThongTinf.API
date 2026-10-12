@@ -81,6 +81,46 @@ public class DocumentService : IDocumentService
         return new Pagination<DocumentDto>(dtos, total, param.PageIndex, param.PageSize);
     }
 
+    public async Task<DashboardDocumentStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive, int previewTake)
+    {
+        if (previewTake <= 0)
+            previewTake = 5;
+
+        var documents = _unitOfWork.Documents.GetQueryable().AsNoTracking();
+
+        var byCategory = await documents
+            .GroupBy(d => d.Category)
+            .Select(g => new DashboardDocumentCategoryCountDto
+            {
+                Category = g.Key,
+                Count = g.Count()
+            })
+            .OrderBy(x => x.Category)
+            .ToListAsync();
+
+        var recentItems = await documents
+            .OrderByDescending(d => d.CreatedAt)
+            .Take(previewTake)
+            .Select(d => new DashboardDocumentPreviewDto
+            {
+                Id = d.Id,
+                Title = d.Title,
+                FileName = d.FileName,
+                Category = d.Category,
+                CreatedAt = d.CreatedAt
+            })
+            .ToListAsync();
+
+        return new DashboardDocumentStatsDto
+        {
+            Total = await documents.CountAsync(),
+            UploadedInRange = await documents.CountAsync(d => d.CreatedAt >= from && d.CreatedAt < toExclusive),
+            TotalFileSize = await documents.SumAsync(d => (long?)d.FileSize) ?? 0,
+            ByCategory = byCategory,
+            RecentItems = recentItems
+        };
+    }
+
     public async Task<DocumentDto> UploadInternalDocumentAsync(Guid currentUserId, UploadDocumentForm form, CancellationToken cancellationToken = default)
     {
         _logger.Info($"[UploadInternalDocumentAsync] Admin {currentUserId} uploads internal document.");

@@ -73,6 +73,22 @@ public class UserService : IUserService
         return new Pagination<UserDto>(users.Select(UserMapper.ToUserDto).ToList(), total, param.PageIndex, param.PageSize);
     }
 
+    public async Task<DashboardUserStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive)
+    {
+        var users = _unitOfWork.Users.GetQueryable().AsNoTracking();
+
+        return new DashboardUserStatsDto
+        {
+            Total = await users.CountAsync(),
+            Active = await users.CountAsync(u => u.IsActive),
+            Inactive = await users.CountAsync(u => !u.IsActive),
+            Admin = await users.CountAsync(u => u.Role != null && u.Role.Name == RoleType.Admin),
+            Journalist = await users.CountAsync(u => u.Role != null && u.Role.Name == RoleType.Journalist),
+            LoggedInInRange = await users.CountAsync(u =>
+                u.LastLoginAt.HasValue && u.LastLoginAt.Value >= from && u.LastLoginAt.Value < toExclusive)
+        };
+    }
+
     public async Task<UserDto> GetUserByIdAsync(Guid id)
     {
         _logger.Info($"[GetUserById] Requests user {id}");

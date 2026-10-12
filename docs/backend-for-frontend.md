@@ -40,11 +40,11 @@
   - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
-  - Admin: CRUD tài khoản (phân trang), upload web banner
+  - Admin: CRUD tài khoản (phân trang), dashboard thống kê, upload web banner
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
-  Chưa có API: dashboard, xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, sửa/xóa tài liệu.
+  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, sửa/xóa tài liệu.
 
   ## Vai trò
 
@@ -52,7 +52,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`. Tạo, sửa, xóa danh mục. Upload banner. Upload tài liệu nội bộ. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Upload banner. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -212,9 +212,40 @@
 
   Thành công: HTTP `200`, `value.data` là `UserDto` (cùng shape với `user` khi login). User trong token không còn trong DB hoặc `isActive == false`: HTTP `404`.
 
+  ## Dashboard
+
+  `GET /api/dashboard` — token role `Admin`. Controller riêng `DashboardController`. Service layer gom snapshot từ `UserService`, `NewsService`, `DocumentService`, `CategoryService`, `AdminService` (banner).
+
+  | Param | Kiểu | Mặc định | Rule |
+  | --- | --- | --- | --- |
+  | `fromDate` | date/datetime, optional | 29 ngày trước (UTC, đầu ngày) | Lọc các field `*InRange`, `newsByDay`, `loggedInInRange` |
+  | `toDate` | date/datetime, optional | hôm nay (UTC) | Inclusive theo ngày. `fromDate` > `toDate`: HTTP `400`, `Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.` |
+
+  KPI `total` / theo status / `totalViews` / `byCategory` là **toàn bộ** dữ liệu, không cắt theo khoảng ngày.
+
+  `pendingNews` lấy tối đa 5 bài `status = Pending`. `topViewedNews` lấy tối đa 5 bài `Published` sort `viewCount` giảm dần. `ViewCount` hiện chưa tăng khi đọc bài, nên số này có thể chỉ từ seed.
+
+  Thành công: HTTP `200`, message `Lấy dữ liệu dashboard thành công.` Journalist bị framework chặn HTTP `403`.
+
+  `value.data`:
+
+  | Field | Ý nghĩa |
+  | --- | --- |
+  | `fromDate`, `toDate` | Khoảng ngày server đã dùng (inclusive) |
+  | `users` | `total`, `active`, `inactive`, `admin`, `journalist`, `loggedInInRange` |
+  | `news` | `total`, `draft`, `pending`, `published`, `archived`, `createdInRange`, `publishedInRange`, `totalViews` |
+  | `documents` | `total`, `uploadedInRange`, `totalFileSize`, `byCategory[]` (`category` số `0..4`, `count`) |
+  | `categories` | `total`, `active` |
+  | `banners` | `total`, `active` |
+  | `newsByCategory[]` | `categoryId`, `categoryName`, `count` |
+  | `newsByDay[]` | đủ từng ngày trong khoảng: `date`, `created`, `published` |
+  | `pendingNews[]` | `id`, `title`, `authorName`, `categoryName`, `viewCount`, `createdAt` |
+  | `topViewedNews[]` | cùng shape `pendingNews` |
+  | `recentDocuments[]` | `id`, `title`, `fileName`, `category`, `createdAt` — tối đa 5 |
+
   ## Envelope `ApiResult<T>`
 
-  Mọi action auth, me, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+  Mọi action auth, me, dashboard, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
 
   Ngoại lệ: `GET /api/documents/{id}/download` trả **binary file**, không bọc `ApiResult`. Thành công thì body là bytes, header `Content-Disposition: attachment`.
 
@@ -819,7 +850,7 @@
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST /api/admin/banners`, `POST /api/documents`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST /api/admin/banners`, `POST /api/documents`.
   - `GET /api/news`, `GET /api/news/{id}`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
   - Tạo bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. Riêng `POST /api/news` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
@@ -831,5 +862,5 @@
   - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn tạo phóng viên, quản lý user (`/api/admin/users`), upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
+  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

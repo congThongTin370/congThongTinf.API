@@ -17,4 +17,6 @@ public interface INewsService
     Task<bool> DeleteNewsAsync(Guid currentUserId, Guid id);
 
     Task<NewsImageDto> UploadImageAsync(Guid currentUserId, IFormFile? file, CancellationToken cancellationToken = default);
+
+    Task<DashboardNewsStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive, int previewTake);
 }
