@@ -1,3 +1,4 @@
+using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Service.DTOs;
 using Microsoft.AspNetCore.Http;
 
@@ -5,7 +6,7 @@ namespace congThongTinf.Service.Interfaces;
 
 public interface INewsService
 {
-    Task<List<NewsDto>> GetAllNewsAsync(NewsQueryDto? query);
+    Task<Pagination<NewsDto>> GetAllNewsAsync(NewsQueryDto? query);
 
     Task<NewsDto> GetNewsByIdAsync(Guid id);
 

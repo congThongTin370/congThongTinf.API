@@ -156,6 +156,7 @@ public static class IocContainer
         services.SetupCloudflareR2();
         services.AddScoped<IBlobService, BlobService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<INewsService, NewsService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IDocumentService, DocumentService>();

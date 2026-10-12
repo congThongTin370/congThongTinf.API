@@ -1,3 +1,4 @@
+using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Infrastructure.Interfaces;
 using congThongTinf.Service.DTOs;
 using congThongTinf.Service.Interfaces;
@@ -21,19 +22,19 @@ public class NewsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResult<List<NewsDto>>), 200)]
-    [ProducesResponseType(typeof(ApiResult<List<NewsDto>>), 400)]
+    [ProducesResponseType(typeof(ApiResult<Pagination<NewsDto>>), 200)]
+    [ProducesResponseType(typeof(ApiResult<Pagination<NewsDto>>), 400)]
     public async Task<IActionResult> GetAll([FromQuery] NewsQueryDto query)
     {
         try
         {
             var result = await _newsService.GetAllNewsAsync(query);
-            return Ok(ApiResult<List<NewsDto>>.Success(result, "200", "Lấy danh sách bài báo thành công."));
+            return Ok(ApiResult<Pagination<NewsDto>>.Success(result, "200", "Lấy danh sách bài báo thành công."));
         }
         catch (Exception ex)
         {
             var statusCode = ExceptionUtils.ExtractStatusCode(ex);
-            var errorResponse = ExceptionUtils.CreateErrorResponse<List<NewsDto>>(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<Pagination<NewsDto>>(ex);
             return StatusCode(statusCode, errorResponse);
         }
     }

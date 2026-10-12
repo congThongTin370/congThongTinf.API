@@ -1,4 +1,5 @@
 ﻿using congThongTinf.Domain.Entities;
+using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Service.DTOs;
 using congThongTinf.Service.Interfaces;
 using congThongTinf.Service.Interfaces.Commons;
@@ -32,9 +33,11 @@ public class NewsService : INewsService
         _blobService = blobService;
     }
 
-    public async Task<List<NewsDto>> GetAllNewsAsync(NewsQueryDto? query)
+    public async Task<Pagination<NewsDto>> GetAllNewsAsync(NewsQueryDto? query)
     {
         query ??= new NewsQueryDto();
+        if (query.PageSize <= 0)
+            query.PageSize = 10;
 
         if (query.FromDate.HasValue && query.ToDate.HasValue
             && query.FromDate.Value.Date > query.ToDate.Value.Date)
@@ -50,7 +53,7 @@ public class NewsService : INewsService
             .ToList();
 
         _logger.Info(
-            $"[GetAllNews] from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}");
+            $"[GetAllNews] page={query.PageIndex}, size={query.PageSize}, from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}");
 
         var articles = _unitOfWork.News.GetQueryable()
             .Include(n => n.Category)
@@ -66,12 +69,21 @@ public class NewsService : INewsService
         if (categoryIds is { Count: > 0 })
             articles = articles.Where(n => categoryIds.Contains(n.CategoryId));
 
-        var result = await articles
-            .OrderByDescending(n => n.CreatedAt)
-            .ToListAsync();
+        articles = articles.OrderByDescending(n => n.CreatedAt);
 
-        _logger.Success($"[GetAllNews] Returned {result.Count} articles.");
-        return result.Select(ToDto).ToList();
+        var total = await articles.CountAsync();
+
+        List<News> result;
+        if (query.PageIndex == 0)
+            result = await articles.ToListAsync();
+        else
+            result = await articles
+                .Skip((query.PageIndex - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync();
+
+        _logger.Success($"[GetAllNews] Returned {result.Count} of {total} articles.");
+        return new Pagination<NewsDto>(result.Select(ToDto).ToList(), total, query.PageIndex, query.PageSize);
     }
 
     public async Task<NewsDto> GetNewsByIdAsync(Guid id)

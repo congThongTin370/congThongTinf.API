@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using congThongTinf.Domain.Entities;
 
 namespace congThongTinf.Service.DTOs;
@@ -12,7 +13,23 @@ public class UserCreateDto
 
     public string FullName { get; set; } = string.Empty;
 
-    public RoleType RoleName { get; set; }
+    [DefaultValue(RoleType.Journalist)]
+    public RoleType RoleName { get; set; } = RoleType.Journalist;
+}
+
+public class UserUpdateDto
+{
+    public string? Username { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Password { get; set; }
+
+    public string? FullName { get; set; }
+
+    public RoleType? RoleName { get; set; }
+
+    public bool? IsActive { get; set; }
 }
 
 public class UpdateProfileDto
