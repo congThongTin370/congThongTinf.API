@@ -1,22 +1,35 @@
 ﻿using congThongTinf.Domain.Entities;
 using congThongTinf.Service.DTOs;
 using congThongTinf.Service.Interfaces;
+using congThongTinf.Service.Interfaces.Commons;
 using congThongTinf.Service.Utils;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace congThongTinf.Service.Services;
 
 public class NewsService : INewsService
 {
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".webp", ".gif"
+    };
+
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAdminService _adminService;
+    private readonly IBlobService _blobService;
 
-    public NewsService(ILoggerService logger, IUnitOfWork unitOfWork, IAdminService adminService)
+    public NewsService(
+        ILoggerService logger,
+        IUnitOfWork unitOfWork,
+        IAdminService adminService,
+        IBlobService blobService)
     {
         _logger = logger;
         _unitOfWork = unitOfWork;
         _adminService = adminService;
+        _blobService = blobService;
     }
 
     public async Task<List<NewsDto>> GetAllNewsAsync(NewsQueryDto? query)
@@ -90,12 +103,22 @@ public class NewsService : INewsService
         if (category == null)
             throw ErrorHelper.NotFound($"Danh mục với ID {dto.CategoryId} không tồn tại.");
 
+        // Ảnh bìa là tùy chọn. Nếu có, upload lên bucket và lấy URL để lưu xuống DB.
+        string? coverImageUrl = null;
+        if (dto.CoverImage != null)
+        {
+            ValidateImage(dto.CoverImage);
+
+            var upload = await _blobService.UploadFileAsync(dto.CoverImage, $"news/{currentUserId}");
+            coverImageUrl = upload.Url;
+        }
+
         var news = new News
         {
             Title = dto.Title.Trim(),
             Summary = dto.Summary?.Trim() ?? string.Empty,
             Content = dto.Content,
-            CoverImageUrl = dto.CoverImageUrl,
+            CoverImageUrl = coverImageUrl,
             CategoryId = dto.CategoryId,
             AuthorId = currentUserId,
             Status = NewsStatus.Draft,
@@ -182,6 +205,37 @@ public class NewsService : INewsService
 
         _logger.Success($"[DeleteNews] News {id} deleted by user {currentUserId}.");
         return true;
+    }
+
+    public async Task<NewsImageDto> UploadImageAsync(
+        Guid currentUserId,
+        IFormFile? file,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.Info($"[UploadImage] User {currentUserId} uploads a news image.");
+
+        await EnsureJournalistAsync(currentUserId);
+
+        ValidateImage(file);
+
+        // news/{userId}/{guid}.ext — the user folder is the ownership trail; no image table.
+        var upload = await _blobService.UploadFileAsync(file, $"news/{currentUserId}", cancellationToken);
+
+        _logger.Success($"[UploadImage] Stored {upload.Key} for user {currentUserId}.");
+        return new NewsImageDto { Url = upload.Url };
+    }
+
+    /// <summary>
+    ///     Throws 400 unless the file is non-empty and has an allowed image extension.
+    /// </summary>
+    private static void ValidateImage(IFormFile? file)
+    {
+        if (file == null || file.Length == 0)
+            throw ErrorHelper.BadRequest("File là bắt buộc.");
+
+        var extension = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(extension) || !ImageExtensions.Contains(extension))
+            throw ErrorHelper.BadRequest("Ảnh phải là jpg, jpeg, png, webp hoặc gif.");
     }
 
     /// <summary>

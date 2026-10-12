@@ -9,7 +9,7 @@ Docker Compose publish API ra cổng `5000` (container lắng nghe `8080`).
 
 Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
-Ngoại lệ: upload file dùng `multipart/form-data` (`POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, …).
+Ngoại lệ: tạo bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `POST /api/news/images`, `POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
 ## Hệ thống
 
@@ -403,32 +403,62 @@ Danh sách sort `CreatedAt` giảm dần. Không phân trang. Trả mọi status
 
 ### Tạo bài
 
-`POST /api/news` — cần token, role `Journalist`. Bài tạo ra có `authorId` là user trong token, status `Draft`.
+`POST /api/news` — cần token, role `Journalist`. `Content-Type: multipart/form-data`. Bài tạo ra có `authorId` là user trong token, status `Draft`.
 
-```json
-{
-  "title": "Tiêu đề bài",
-  "summary": "Tóm tắt",
-  "content": "Nội dung đầy đủ",
-  "coverImageUrl": null,
-  "categoryId": "00000000-0000-0000-0000-000000000000"
-}
-```
+Ảnh bìa là file tải từ máy local. Server upload lên R2 (folder `news/{userId}`), lấy URL và lưu vào `coverImageUrl`. Client **không** gửi URL ảnh.
 
-| Field | Bắt buộc | Ghi chú |
-| --- | --- | --- |
-| `title` | Có | Không được chỉ có khoảng trắng |
-| `content` | Có | Không được chỉ có khoảng trắng |
-| `categoryId` | Có | Phải là Guid của category đã tồn tại |
-| `summary` | Không | Mặc định chuỗi rỗng |
-| `coverImageUrl` | Không | URL hoặc null |
+| Field | Kiểu | Bắt buộc | Ghi chú |
+| --- | --- | --- | --- |
+| `title` | string | Có | Không được chỉ có khoảng trắng |
+| `content` | string | Có | Không được chỉ có khoảng trắng |
+| `categoryId` | Guid | Có | Phải là Guid của category đang active |
+| `summary` | string | Không | Mặc định chuỗi rỗng |
+| `coverImage` | file | Không | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB. Không gửi thì `coverImageUrl` là `null` |
 
 Thành công: HTTP `200`, `value.data` là `NewsDto` vừa tạo.
 
 - Thiếu `title`, `content` hoặc `categoryId`: HTTP `400`, `Tiêu đề, nội dung và danh mục là bắt buộc.`
 - `categoryId` không tồn tại: HTTP `404`, `Danh mục với ID {id} không tồn tại.`
+- `coverImage` rỗng hoặc sai loại: HTTP `400`, `File là bắt buộc.` hoặc `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+- `coverImage` lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
 - Không phải Journalist (kể cả Admin): HTTP `403`, `Chỉ phóng viên mới được thực hiện thao tác này.`
 - User trong token không còn trong DB hoặc bị khóa: HTTP `401`, `Không xác định được người dùng hiện tại.`
+
+Ví dụ gửi bằng form (HTML):
+
+```html
+<form enctype="multipart/form-data">
+  <input name="title" value="Sư đoàn 370 tổ chức hội nghị giao ban tháng 10">
+  <input name="summary" value="Tóm tắt bài báo">
+  <textarea name="content">Nội dung bài báo</textarea>
+  <input name="categoryId" value="{categoryGuid}">
+  <input type="file" name="coverImage" accept=".jpg,.jpeg,.png,.webp,.gif">
+</form>
+```
+
+Ví dụ `coverImageUrl` trong `NewsDto` trả về: `https://<PublicUrl>/news/{userId}/{guid}.jpg`.
+
+### Upload ảnh trong bài
+
+`POST /api/news/images` — cần token, role `Journalist`. `Content-Type: multipart/form-data`.
+
+| Field | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `file` | Có | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB |
+
+Thành công: HTTP `200`, `value.data` là `NewsImageDto`, message `Tải ảnh thành công.`
+
+```json
+{
+  "url": "https://<PublicUrl>/news/{userId}/{guid}.jpg"
+}
+```
+
+- Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
+- Sai loại ảnh: HTTP `400`, `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+- Token không phải Journalist: HTTP `403` (framework).
+
+Endpoint này chỉ trả URL. Không tạo bản ghi bài báo. Dùng khi cần chèn ảnh vào nội dung bài.
 
 ### Sửa bài
 
@@ -705,9 +735,9 @@ Thành công trả `ApiResult`, `value.data` có `message` và count tương ứ
 
 ## Việc frontend nên làm
 
-- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/admin/banners`, `POST /api/documents`.
-- `GET /api/news`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
-- Upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON.
+- Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `POST /api/admin/banners`, `POST /api/documents`.
+- `GET /api/news`, `GET /api/news/{id}`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
+- Tạo bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. Riêng `POST /api/news` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`.
 - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
 - Đọc payload ở `response.value.data`.
 - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.

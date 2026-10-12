@@ -58,9 +58,10 @@ public class NewsController : ControllerBase
 
     [Authorize]
     [HttpPost]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResult<NewsDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<NewsDto>), 403)]
-    public async Task<IActionResult> Create([FromBody] CreateNewsDto dto)
+    public async Task<IActionResult> Create([FromForm] CreateNewsDto dto)
     {
         try
         {
@@ -71,6 +72,30 @@ public class NewsController : ControllerBase
         {
             var statusCode = ExceptionUtils.ExtractStatusCode(ex);
             var errorResponse = ExceptionUtils.CreateErrorResponse<NewsDto>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
+    [Authorize(Roles = "Journalist")]
+    [HttpPost("images")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ApiResult<NewsImageDto>), 200)]
+    [ProducesResponseType(typeof(ApiResult<NewsImageDto>), 400)]
+    [ProducesResponseType(typeof(ApiResult<NewsImageDto>), 403)]
+    public async Task<IActionResult> UploadImage([FromForm] UploadFileForm form)
+    {
+        try
+        {
+            var result = await _newsService.UploadImageAsync(
+                _claimsService.CurrentUserId,
+                form?.File,
+                HttpContext.RequestAborted);
+            return Ok(ApiResult<NewsImageDto>.Success(result, "200", "Tải ảnh thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<NewsImageDto>(ex);
             return StatusCode(statusCode, errorResponse);
         }
     }

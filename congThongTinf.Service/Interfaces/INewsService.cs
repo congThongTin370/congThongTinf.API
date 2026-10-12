@@ -1,4 +1,5 @@
 using congThongTinf.Service.DTOs;
+using Microsoft.AspNetCore.Http;
 
 namespace congThongTinf.Service.Interfaces;
 
@@ -13,4 +14,6 @@ public interface INewsService
     Task<NewsDto> UpdateNewsAsync(Guid currentUserId, Guid id, UpdateNewsDto dto);
 
     Task<bool> DeleteNewsAsync(Guid currentUserId, Guid id);
+
+    Task<NewsImageDto> UploadImageAsync(Guid currentUserId, IFormFile? file, CancellationToken cancellationToken = default);
 }
