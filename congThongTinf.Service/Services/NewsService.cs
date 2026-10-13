@@ -279,36 +279,28 @@ public class NewsService : INewsService
 
         EnsureOwner(news, currentUserId);
 
-        if (dto.Title != null)
+        if (string.IsNullOrWhiteSpace(dto.Title)
+            || string.IsNullOrWhiteSpace(dto.Content)
+            || dto.CategoryId == Guid.Empty)
+            throw ErrorHelper.BadRequest("Tiêu đề, nội dung và danh mục là bắt buộc.");
+
+        var category = await _unitOfWork.Categories.GetByIdAsync(dto.CategoryId);
+        if (category == null)
+            throw ErrorHelper.NotFound($"Danh mục với ID {dto.CategoryId} không tồn tại.");
+
+        news.Title = dto.Title.Trim();
+        news.Summary = dto.Summary?.Trim() ?? string.Empty;
+        news.Content = dto.Content;
+        news.CategoryId = dto.CategoryId;
+
+        if (dto.CoverImage != null)
         {
-            if (string.IsNullOrWhiteSpace(dto.Title))
-                throw ErrorHelper.BadRequest("Tiêu đề không được để trống.");
-            news.Title = dto.Title.Trim();
-        }
+            ValidateImage(dto.CoverImage);
 
-        if (dto.Summary != null)
-            news.Summary = dto.Summary.Trim();
-
-        if (dto.Content != null)
-        {
-            if (string.IsNullOrWhiteSpace(dto.Content))
-                throw ErrorHelper.BadRequest("Nội dung không được để trống.");
-            news.Content = dto.Content;
-        }
-
-        if (dto.CoverImageUrl != null)
-            news.CoverImageUrl = dto.CoverImageUrl;
-
-        if (dto.CategoryId.HasValue)
-        {
-            if (dto.CategoryId.Value == Guid.Empty)
-                throw ErrorHelper.BadRequest("Danh mục không hợp lệ.");
-
-            var category = await _unitOfWork.Categories.GetByIdAsync(dto.CategoryId.Value);
-            if (category == null)
-                throw ErrorHelper.NotFound($"Danh mục với ID {dto.CategoryId.Value} không tồn tại.");
-
-            news.CategoryId = dto.CategoryId.Value;
+            var upload = await _blobService.UploadFileAsync(dto.CoverImage, $"news/{currentUserId}");
+            var previousCoverUrl = news.CoverImageUrl;
+            news.CoverImageUrl = upload.Url;
+            await TryDeleteCoverBlobAsync(previousCoverUrl);
         }
 
         await _unitOfWork.News.Update(news);
@@ -356,6 +348,22 @@ public class NewsService : INewsService
 
         _logger.Success($"[UploadImage] Stored {upload.Key} for user {currentUserId}.");
         return new NewsImageDto { Url = upload.Url };
+    }
+
+    private async Task TryDeleteCoverBlobAsync(string? coverImageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(coverImageUrl))
+            return;
+
+        try
+        {
+            var key = _blobService.GetKeyFromPublicUrl(coverImageUrl);
+            await _blobService.DeleteFileAsync(key);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"[TryDeleteCoverBlob] Failed to delete previous cover '{coverImageUrl}': {ex.Message}");
+        }
     }
 
     /// <summary>

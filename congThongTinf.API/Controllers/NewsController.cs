@@ -75,7 +75,7 @@ public class NewsController : ControllerBase
         }
     }
 
-    [Authorize]
+    [Authorize(Roles = "Journalist")]
     [HttpPost]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResult<NewsDto>), 200)]
@@ -121,9 +121,10 @@ public class NewsController : ControllerBase
 
     [Authorize]
     [HttpPut("{id:guid}")]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResult<NewsDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<NewsDto>), 403)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateNewsDto dto)
+    public async Task<IActionResult> Update(Guid id, [FromForm] UpdateNewsDto dto)
     {
         try
         {

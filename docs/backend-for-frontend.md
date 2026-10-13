@@ -9,7 +9,7 @@
 
   Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
-  Ngoại lệ: tạo bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `POST /api/news/images`, `POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
+  Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
   ## Hệ thống
 
@@ -539,27 +539,27 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ### Sửa bài
 
-  `PUT /api/news/{id}` — cần token, role `Journalist`, và phải là tác giả của bài.
+  `PUT /api/news/{id}` — cần token, role `Journalist`, và phải là tác giả của bài. `Content-Type: multipart/form-data`. Form field giống `POST /api/news`. `{id}` lấy từ URL, không gửi `id` trong form.
 
-  Mọi field đều optional. Field không gửi hoặc gửi `null` thì giữ nguyên.
+  Không đổi: `id`, `authorId`, `status`, `publishedAt`, `viewCount`, `createdAt`.
 
-  ```json
-  {
-    "title": "Tiêu đề mới",
-    "summary": "Tóm tắt mới",
-    "content": "Nội dung mới",
-    "coverImageUrl": "https://...",
-    "categoryId": "00000000-0000-0000-0000-000000000000"
-  }
-  ```
+  | Field | Kiểu | Bắt buộc | Ghi chú |
+  | --- | --- | --- | --- |
+  | `title` | string | Có | Không được chỉ có khoảng trắng |
+  | `content` | string | Có | Không được chỉ có khoảng trắng |
+  | `categoryId` | Guid | Có | Phải là Guid của category đang tồn tại |
+  | `summary` | string | Không | Mặc định chuỗi rỗng |
+  | `coverImage` | file | Không | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB. Có file thì upload lên R2 và thay `coverImageUrl`. Không gửi thì giữ ảnh bìa cũ. Client **không** gửi `coverImageUrl`. |
 
   Thành công: HTTP `200`, `value.data` là `NewsDto` sau khi sửa.
 
+  - Thiếu `title`, `content` hoặc `categoryId`: HTTP `400`, `Tiêu đề, nội dung và danh mục là bắt buộc.`
   - Không tồn tại: HTTP `404`.
+  - `categoryId` không tồn tại: HTTP `404`, `Danh mục với ID {id} không tồn tại.`
   - Không phải tác giả: HTTP `403`, `Bạn chỉ được thao tác trên bài viết của chính mình.`
-  - Không phải Journalist: HTTP `403`.
-  - `title` hoặc `content` gửi chuỗi rỗng/khoảng trắng: HTTP `400`.
-  - `categoryId` không tồn tại: HTTP `404`.
+  - Không phải Journalist: HTTP `403`, `Chỉ phóng viên mới được thực hiện thao tác này.`
+  - `coverImage` rỗng hoặc sai loại: HTTP `400`, `File là bắt buộc.` hoặc `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+  - `coverImage` lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
 
   ### Xóa bài
 
@@ -894,7 +894,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST /api/admin/banners`, `POST /api/documents`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
-  - Tạo bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. Riêng `POST /api/news` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`.
+  - Tạo/sửa bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
   - Đọc payload ở `response.value.data`.
   - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.
