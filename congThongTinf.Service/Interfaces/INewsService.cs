@@ -10,6 +10,8 @@ public interface INewsService
 
     Task<NewsDto> GetNewsByIdAsync(Guid id);
 
+    Task<int> IncrementViewCountAsync(Guid id);
+
     Task<NewsDto> CreateNewsAsync(Guid currentUserId, CreateNewsDto dto);
 
     Task<NewsDto> UpdateNewsAsync(Guid currentUserId, Guid id, UpdateNewsDto dto);

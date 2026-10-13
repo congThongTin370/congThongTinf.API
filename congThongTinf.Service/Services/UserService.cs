@@ -75,6 +75,8 @@ public class UserService : IUserService
 
     public async Task<DashboardUserStatsDto> GetDashboardSnapshotAsync(DateTime from, DateTime toExclusive)
     {
+        var fromUtc = DateTimeUtc.AsUtc(from);
+        var toUtc = DateTimeUtc.AsUtc(toExclusive);
         var users = _unitOfWork.Users.GetQueryable().AsNoTracking();
 
         return new DashboardUserStatsDto
@@ -85,7 +87,7 @@ public class UserService : IUserService
             Admin = await users.CountAsync(u => u.Role != null && u.Role.Name == RoleType.Admin),
             Journalist = await users.CountAsync(u => u.Role != null && u.Role.Name == RoleType.Journalist),
             LoggedInInRange = await users.CountAsync(u =>
-                u.LastLoginAt.HasValue && u.LastLoginAt.Value >= from && u.LastLoginAt.Value < toExclusive)
+                u.LastLoginAt != null && u.LastLoginAt >= fromUtc && u.LastLoginAt < toUtc)
         };
     }
 

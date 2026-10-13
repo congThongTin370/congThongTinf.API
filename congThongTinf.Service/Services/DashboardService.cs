@@ -117,12 +117,8 @@ public class DashboardService : IDashboardService
             && query.FromDate.Value.Date > query.ToDate.Value.Date)
             throw ErrorHelper.BadRequest("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
 
-        var from = query.FromDate?.Date ?? DateTime.UtcNow.Date.AddDays(-29);
-        var toExclusive = (query.ToDate?.Date ?? DateTime.UtcNow.Date).AddDays(1);
-
-        // Npgsql yêu cầu DateTime cho timestamptz phải có Kind=Utc; Unspecified sẽ gây lỗi khi so sánh.
-        from = DateTime.SpecifyKind(from, DateTimeKind.Utc);
-        toExclusive = DateTime.SpecifyKind(toExclusive, DateTimeKind.Utc);
+        var from = DateTimeUtc.StartOfDay(query.FromDate ?? DateTime.UtcNow.AddDays(-29));
+        var toExclusive = DateTimeUtc.ExclusiveEndOfDay(query.ToDate ?? DateTime.UtcNow);
 
         return (from, toExclusive);
     }

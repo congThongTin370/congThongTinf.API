@@ -57,6 +57,24 @@ public class NewsController : ControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/view")]
+    [ProducesResponseType(typeof(ApiResult<int>), 200)]
+    [ProducesResponseType(typeof(ApiResult<int>), 404)]
+    public async Task<IActionResult> IncrementViewCount(Guid id)
+    {
+        try
+        {
+            var result = await _newsService.IncrementViewCountAsync(id);
+            return Ok(ApiResult<int>.Success(result, "200", "Tăng lượt xem thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<int>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
     [Authorize]
     [HttpPost]
     [Consumes("multipart/form-data")]

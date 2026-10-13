@@ -43,9 +43,11 @@ public class NewsService : INewsService
             && query.FromDate.Value.Date > query.ToDate.Value.Date)
             throw ErrorHelper.BadRequest("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
 
-        var from = query.FromDate?.Date;
+        DateTime? from = query.FromDate.HasValue
+            ? DateTimeUtc.StartOfDay(query.FromDate.Value)
+            : null;
         DateTime? toExclusive = query.ToDate.HasValue
-            ? query.ToDate.Value.Date.AddDays(1)
+            ? DateTimeUtc.ExclusiveEndOfDay(query.ToDate.Value)
             : null;
         var categoryIds = query.CategoryIds?
             .Where(id => id != Guid.Empty)
@@ -90,6 +92,9 @@ public class NewsService : INewsService
     {
         if (previewTake <= 0)
             previewTake = 5;
+
+        from = DateTimeUtc.AsUtc(from);
+        toExclusive = DateTimeUtc.AsUtc(toExclusive);
 
         var news = _unitOfWork.News.GetQueryable().AsNoTracking();
 
@@ -196,6 +201,24 @@ public class NewsService : INewsService
         }
 
         return ToDto(news);
+    }
+
+    public async Task<int> IncrementViewCountAsync(Guid id)
+    {
+        _logger.Info($"[IncrementViewCount] News {id}");
+
+        var news = await _unitOfWork.News.GetByIdAsync(id);
+        if (news == null)
+        {
+            _logger.Warn($"[IncrementViewCount] News {id} not found.");
+            throw ErrorHelper.NotFound($"Bài báo với ID {id} không tồn tại.");
+        }
+
+        news.ViewCount++;
+        await _unitOfWork.SaveChangesAsync();
+
+        _logger.Success($"[IncrementViewCount] News {id} viewCount={news.ViewCount}.");
+        return news.ViewCount;
     }
 
     public async Task<NewsDto> CreateNewsAsync(Guid currentUserId, CreateNewsDto dto)

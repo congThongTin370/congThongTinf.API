@@ -37,7 +37,7 @@
 
   - Auth: đăng nhập, đăng xuất, admin tạo tài khoản phóng viên
   - Me: đọc profile/role của token, kiểm tra admin
-  - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tạo, sửa, xóa
+  - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tăng lượt xem, tạo, sửa, xóa
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê, upload web banner
@@ -252,7 +252,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 | `pendingNews[]` | `id`, `title`, `authorName`, `categoryName`, `viewCount`, `createdAt` — tối đa 5, `status = Pending` |
 | `topViewedNews[]` | cùng shape `pendingNews`, `status = Published`, sort `viewCount` giảm dần, tối đa 5 |
 
-`ViewCount` hiện chưa tăng khi đọc bài, nên số này có thể chỉ từ seed.
+`ViewCount` tăng khi frontend gọi `POST /api/news/{id}/view` lúc người đọc mở bài.
 
 ### `GET /api/dashboard/documents` — `value.data`
 
@@ -464,6 +464,19 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   - Thành công: HTTP `200`, `value.data` là `NewsDto`.
   - Không tồn tại: HTTP `404`, `Bài báo với ID {id} không tồn tại.`
+
+  Endpoint này **không** tăng `viewCount`. Khi người dùng mở bài, frontend gọi thêm API tăng lượt xem bên dưới.
+
+  ### Tăng lượt xem
+
+  `POST /api/news/{id}/view` — public, không body.
+
+  Cộng `1` vào `News.ViewCount` và trả số lượt xem mới.
+
+  - Thành công: HTTP `200`, `value.data` là `number` (`viewCount` sau khi tăng).
+  - Không tồn tại: HTTP `404`, `Bài báo với ID {id} không tồn tại.`
+
+  Gọi khi user click xem chi tiết bài, sau `GET /api/news/{id}`. Không gọi trên danh sách.
 
   ### Tạo bài
 
@@ -880,7 +893,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   ## Việc frontend nên làm
 
   - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST /api/admin/banners`, `POST /api/documents`.
-  - `GET /api/news`, `GET /api/news/{id}`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
+  - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
   - Tạo bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. Riêng `POST /api/news` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
   - Đọc payload ở `response.value.data`.

@@ -86,6 +86,9 @@ public class DocumentService : IDocumentService
         if (previewTake <= 0)
             previewTake = 5;
 
+        from = DateTimeUtc.AsUtc(from);
+        toExclusive = DateTimeUtc.AsUtc(toExclusive);
+
         var documents = _unitOfWork.Documents.GetQueryable().AsNoTracking();
 
         var byCategory = await documents
