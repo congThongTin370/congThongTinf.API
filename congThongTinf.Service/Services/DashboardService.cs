@@ -32,36 +32,29 @@ public class DashboardService : IDashboardService
         _adminService = adminService;
     }
 
-    public async Task<DashboardDto> GetDashboardAsync(DashboardQueryDto? query)
+    public async Task<DashboardUserStatsDto> GetUsersAsync(DashboardQueryDto? query)
     {
-        query ??= new DashboardQueryDto();
+        var (from, toExclusive) = ResolveRange(query);
+        _logger.Info($"[GetDashboardUsers] from={from:yyyy-MM-dd}, toExclusive={toExclusive:yyyy-MM-dd}");
 
-        if (query.FromDate.HasValue && query.ToDate.HasValue
-            && query.FromDate.Value.Date > query.ToDate.Value.Date)
-            throw ErrorHelper.BadRequest("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
+        var result = await _userService.GetDashboardSnapshotAsync(from, toExclusive);
 
-        var from = (query.FromDate?.Date ?? DateTime.UtcNow.Date.AddDays(-29));
-        var toExclusive = (query.ToDate?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        _logger.Success("[GetDashboardUsers] Users snapshot assembled.");
+        return result;
+    }
 
-        _logger.Info($"[GetDashboard] from={from:yyyy-MM-dd}, toExclusive={toExclusive:yyyy-MM-dd}");
+    public async Task<DashboardNewsSectionDto> GetNewsAsync(DashboardQueryDto? query)
+    {
+        var (from, toExclusive) = ResolveRange(query);
+        _logger.Info($"[GetDashboardNews] from={from:yyyy-MM-dd}, toExclusive={toExclusive:yyyy-MM-dd}");
 
-        var usersTask = _userService.GetDashboardSnapshotAsync(from, toExclusive);
-        var newsTask = _newsService.GetDashboardSnapshotAsync(from, toExclusive, PreviewTake);
-        var documentsTask = _documentService.GetDashboardSnapshotAsync(from, toExclusive, PreviewTake);
-        var categoriesTask = _categoryService.GetDashboardSnapshotAsync();
-        var bannersTask = _adminService.GetBannerDashboardSnapshotAsync();
+        var news = await _newsService.GetDashboardSnapshotAsync(from, toExclusive, PreviewTake);
 
-        await Task.WhenAll(usersTask, newsTask, documentsTask, categoriesTask, bannersTask);
-
-        var news = await newsTask;
-        var documents = await documentsTask;
-
-        var result = new DashboardDto
+        var result = new DashboardNewsSectionDto
         {
             FromDate = from,
             ToDate = toExclusive.AddDays(-1),
-            Users = await usersTask,
-            News = new DashboardNewsStatsDto
+            Stats = new DashboardNewsStatsDto
             {
                 Total = news.Total,
                 Draft = news.Draft,
@@ -72,23 +65,65 @@ public class DashboardService : IDashboardService
                 PublishedInRange = news.PublishedInRange,
                 TotalViews = news.TotalViews
             },
-            Documents = new DashboardDocumentStatsDto
-            {
-                Total = documents.Total,
-                UploadedInRange = documents.UploadedInRange,
-                TotalFileSize = documents.TotalFileSize,
-                ByCategory = documents.ByCategory
-            },
-            Categories = await categoriesTask,
-            Banners = await bannersTask,
             NewsByCategory = news.ByCategory,
             NewsByDay = news.ByDay,
             PendingNews = news.PendingItems,
-            TopViewedNews = news.TopViewedItems,
-            RecentDocuments = documents.RecentItems
+            TopViewedNews = news.TopViewedItems
         };
 
-        _logger.Success("[GetDashboard] Dashboard snapshot assembled.");
+        _logger.Success("[GetDashboardNews] News snapshot assembled.");
         return result;
+    }
+
+    public async Task<DashboardDocumentStatsDto> GetDocumentsAsync(DashboardQueryDto? query)
+    {
+        var (from, toExclusive) = ResolveRange(query);
+        _logger.Info($"[GetDashboardDocuments] from={from:yyyy-MM-dd}, toExclusive={toExclusive:yyyy-MM-dd}");
+
+        var documents = await _documentService.GetDashboardSnapshotAsync(from, toExclusive, PreviewTake);
+
+        _logger.Success("[GetDashboardDocuments] Documents snapshot assembled.");
+        return new DashboardDocumentStatsDto
+        {
+            Total = documents.Total,
+            UploadedInRange = documents.UploadedInRange,
+            TotalFileSize = documents.TotalFileSize,
+            ByCategory = documents.ByCategory,
+            RecentItems = documents.RecentItems
+        };
+    }
+
+    public async Task<DashboardCategoryStatsDto> GetCategoriesAsync()
+    {
+        _logger.Info("[GetDashboardCategories] Requested.");
+        var result = await _categoryService.GetDashboardSnapshotAsync();
+        _logger.Success("[GetDashboardCategories] Categories snapshot assembled.");
+        return result;
+    }
+
+    public async Task<DashboardBannerStatsDto> GetBannersAsync()
+    {
+        _logger.Info("[GetDashboardBanners] Requested.");
+        var result = await _adminService.GetBannerDashboardSnapshotAsync();
+        _logger.Success("[GetDashboardBanners] Banners snapshot assembled.");
+        return result;
+    }
+
+    private static (DateTime From, DateTime ToExclusive) ResolveRange(DashboardQueryDto? query)
+    {
+        query ??= new DashboardQueryDto();
+
+        if (query.FromDate.HasValue && query.ToDate.HasValue
+            && query.FromDate.Value.Date > query.ToDate.Value.Date)
+            throw ErrorHelper.BadRequest("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.");
+
+        var from = query.FromDate?.Date ?? DateTime.UtcNow.Date.AddDays(-29);
+        var toExclusive = (query.ToDate?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+
+        // Npgsql yêu cầu DateTime cho timestamptz phải có Kind=Utc; Unspecified sẽ gây lỗi khi so sánh.
+        from = DateTime.SpecifyKind(from, DateTimeKind.Utc);
+        toExclusive = DateTime.SpecifyKind(toExclusive, DateTimeKind.Utc);
+
+        return (from, toExclusive);
     }
 }

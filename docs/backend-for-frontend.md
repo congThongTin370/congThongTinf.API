@@ -214,34 +214,63 @@
 
   ## Dashboard
 
-  `GET /api/dashboard` — token role `Admin`. Controller riêng `DashboardController`. Service layer gom snapshot từ `UserService`, `NewsService`, `DocumentService`, `CategoryService`, `AdminService` (banner).
+Dashboard gồm 5 endpoint riêng, mỗi cái trả một phần dữ liệu. UI tự gọi từng cái. Tất cả cần token role `Admin`, `Journalist` bị framework chặn `403`. Controller `DashboardController`, route `api/dashboard`.
 
-  | Param | Kiểu | Mặc định | Rule |
+Các endpoint `news`, `documents`, `users` nhận query `fromDate` / `toDate`:
+
+| Param | Kiểu | Mặc định | Rule |
   | --- | --- | --- | --- |
-  | `fromDate` | date/datetime, optional | 29 ngày trước (UTC, đầu ngày) | Lọc các field `*InRange`, `newsByDay`, `loggedInInRange` |
+  | `fromDate` | date/datetime, optional | 29 ngày trước (UTC, đầu ngày) | Lọc các field `*InRange`, `newsByDay`, `loggedInInRange`, `uploadedInRange` |
   | `toDate` | date/datetime, optional | hôm nay (UTC) | Inclusive theo ngày. `fromDate` > `toDate`: HTTP `400`, `Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.` |
 
-  KPI `total` / theo status / `totalViews` / `byCategory` là **toàn bộ** dữ liệu, không cắt theo khoảng ngày.
+KPI `total` / theo status / `totalViews` / `byCategory` là **toàn bộ** dữ liệu, không cắt theo khoảng ngày.
 
-  `pendingNews` lấy tối đa 5 bài `status = Pending`. `topViewedNews` lấy tối đa 5 bài `Published` sort `viewCount` giảm dần. `ViewCount` hiện chưa tăng khi đọc bài, nên số này có thể chỉ từ seed.
+Server coi `fromDate` / `toDate` là ngày UTC (`Kind=Utc`) trước khi so sánh với cột `timestamptz`. Gửi dạng `yyyy-MM-dd` là đủ.
 
-  Thành công: HTTP `200`, message `Lấy dữ liệu dashboard thành công.` Journalist bị framework chặn HTTP `403`.
+Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là payload riêng bên dưới.
 
-  `value.data`:
+| Endpoint | Query | Message thành công |
+| --- | --- | --- |
+| `GET /api/dashboard/users` | `fromDate`, `toDate` | Lấy thống kê người dùng thành công. |
+| `GET /api/dashboard/news` | `fromDate`, `toDate` | Lấy thống kê tin tức thành công. |
+| `GET /api/dashboard/documents` | `fromDate`, `toDate` | Lấy thống kê tài liệu thành công. |
+| `GET /api/dashboard/categories` | — | Lấy thống kê danh mục thành công. |
+| `GET /api/dashboard/banners` | — | Lấy thống kê banner thành công. |
 
-  | Field | Ý nghĩa |
-  | --- | --- |
-  | `fromDate`, `toDate` | Khoảng ngày server đã dùng (inclusive) |
-  | `users` | `total`, `active`, `inactive`, `admin`, `journalist`, `loggedInInRange` |
-  | `news` | `total`, `draft`, `pending`, `published`, `archived`, `createdInRange`, `publishedInRange`, `totalViews` |
-  | `documents` | `total`, `uploadedInRange`, `totalFileSize`, `byCategory[]` (`category` số `0..4`, `count`) |
-  | `categories` | `total`, `active` |
-  | `banners` | `total`, `active` |
-  | `newsByCategory[]` | `categoryId`, `categoryName`, `count` |
-  | `newsByDay[]` | đủ từng ngày trong khoảng: `date`, `created`, `published` |
-  | `pendingNews[]` | `id`, `title`, `authorName`, `categoryName`, `viewCount`, `createdAt` |
-  | `topViewedNews[]` | cùng shape `pendingNews` |
-  | `recentDocuments[]` | `id`, `title`, `fileName`, `category`, `createdAt` — tối đa 5 |
+### `GET /api/dashboard/users` — `value.data`
+
+`total`, `active`, `inactive`, `admin`, `journalist`, `loggedInInRange`.
+
+### `GET /api/dashboard/news` — `value.data`
+
+| Field | Ý nghĩa |
+| --- | --- |
+| `fromDate`, `toDate` | Khoảng ngày server đã dùng (inclusive) |
+| `stats` | `total`, `draft`, `pending`, `published`, `archived`, `createdInRange`, `publishedInRange`, `totalViews` |
+| `newsByCategory[]` | `categoryId`, `categoryName`, `count` |
+| `newsByDay[]` | đủ từng ngày trong khoảng: `date`, `created`, `published` |
+| `pendingNews[]` | `id`, `title`, `authorName`, `categoryName`, `viewCount`, `createdAt` — tối đa 5, `status = Pending` |
+| `topViewedNews[]` | cùng shape `pendingNews`, `status = Published`, sort `viewCount` giảm dần, tối đa 5 |
+
+`ViewCount` hiện chưa tăng khi đọc bài, nên số này có thể chỉ từ seed.
+
+### `GET /api/dashboard/documents` — `value.data`
+
+| Field | Ý nghĩa |
+| --- | --- |
+| `total` | Tổng tài liệu |
+| `uploadedInRange` | Số tài liệu upload trong khoảng |
+| `totalFileSize` | Tổng dung lượng, bytes |
+| `byCategory[]` | `category` số `0..4`, `count` |
+| `recentItems[]` | `id`, `title`, `fileName`, `category`, `createdAt` — tối đa 5 |
+
+### `GET /api/dashboard/categories` — `value.data`
+
+`total`, `active`.
+
+### `GET /api/dashboard/banners` — `value.data`
+
+`total`, `active`.
 
   ## Envelope `ApiResult<T>`
 

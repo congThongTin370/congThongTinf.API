@@ -9,21 +9,13 @@ public class DashboardQueryDto
     public DateTime? ToDate { get; set; }
 }
 
-public class DashboardDto
+public class DashboardNewsSectionDto
 {
     public DateTime FromDate { get; set; }
 
     public DateTime ToDate { get; set; }
 
-    public DashboardUserStatsDto Users { get; set; } = new();
-
-    public DashboardNewsStatsDto News { get; set; } = new();
-
-    public DashboardDocumentStatsDto Documents { get; set; } = new();
-
-    public DashboardCategoryStatsDto Categories { get; set; } = new();
-
-    public DashboardBannerStatsDto Banners { get; set; } = new();
+    public DashboardNewsStatsDto Stats { get; set; } = new();
 
     public List<DashboardCategoryCountDto> NewsByCategory { get; set; } = new();
 
@@ -32,8 +24,6 @@ public class DashboardDto
     public List<DashboardNewsPreviewDto> PendingNews { get; set; } = new();
 
     public List<DashboardNewsPreviewDto> TopViewedNews { get; set; } = new();
-
-    public List<DashboardDocumentPreviewDto> RecentDocuments { get; set; } = new();
 }
 
 public class DashboardUserStatsDto
