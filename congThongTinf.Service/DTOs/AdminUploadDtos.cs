@@ -9,7 +9,9 @@ public class UploadBannerForm
 
     public string? Title { get; set; }
 
-    public int DisplayOrder { get; set; }
+    public string? LinkUrl { get; set; }
+
+    public BannerPosition Position { get; set; } = BannerPosition.Header;
 
     public bool IsActive { get; set; } = true;
 }
@@ -18,7 +20,9 @@ public class UpdateBannerForm
 {
     public string? Title { get; set; }
 
-    public int? DisplayOrder { get; set; }
+    public string? LinkUrl { get; set; }
+
+    public BannerPosition? Position { get; set; }
 
     public bool? IsActive { get; set; }
 
@@ -33,6 +37,8 @@ public class BannerQueryParameter
 
     public string? Search { get; set; }
 
+    public BannerPosition? Position { get; set; }
+
     public bool? IsActive { get; set; }
 }
 
@@ -44,13 +50,15 @@ public class BannerDto
 
     public string ImageUrl { get; set; } = string.Empty;
 
+    public string? LinkUrl { get; set; }
+
     public string FileName { get; set; } = string.Empty;
 
     public string FileType { get; set; } = string.Empty;
 
     public long FileSize { get; set; }
 
-    public int DisplayOrder { get; set; }
+    public BannerPosition Position { get; set; }
 
     public bool IsActive { get; set; }
 

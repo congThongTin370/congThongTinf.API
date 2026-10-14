@@ -43,10 +43,16 @@ public class BannerService : IBannerService
             query = query.Where(b => !string.IsNullOrEmpty(b.Title) && b.Title.ToLower().Contains(keyword));
         }
 
+        if (param.Position.HasValue)
+        {
+            EnsureValidPosition(param.Position.Value);
+            query = query.Where(b => b.Position == param.Position.Value);
+        }
+
         if (param.IsActive.HasValue)
             query = query.Where(b => b.IsActive == param.IsActive.Value);
 
-        query = query.OrderBy(b => b.DisplayOrder).ThenByDescending(b => b.CreatedAt);
+        query = query.OrderBy(b => b.Position).ThenByDescending(b => b.CreatedAt);
 
         var total = await query.CountAsync();
         if (total == 0)
@@ -87,6 +93,7 @@ public class BannerService : IBannerService
             throw ErrorHelper.BadRequest("Dữ liệu không hợp lệ.");
 
         var file = ValidateImage(form.File);
+        EnsureValidPosition(form.Position);
 
         var title = string.IsNullOrWhiteSpace(form.Title)
             ? Path.GetFileNameWithoutExtension(file.FileName)
@@ -98,17 +105,21 @@ public class BannerService : IBannerService
         {
             Title = title,
             ImageUrl = upload.Url,
+            LinkUrl = NormalizeLinkUrl(form.LinkUrl),
             FileKey = upload.Key,
             FileName = file.FileName,
             FileType = Truncate(upload.ContentType, 128),
             FileSize = upload.Size,
-            DisplayOrder = form.DisplayOrder,
+            Position = form.Position,
             IsActive = form.IsActive,
             UploadedByUserId = currentUserId
         };
 
         try
         {
+            if (banner.IsActive)
+                await DeactivateOthersInPositionAsync(banner.Position, banner.Id);
+
             await _unitOfWork.Banners.AddAsync(banner);
             await _unitOfWork.SaveChangesAsync();
         }
@@ -144,8 +155,14 @@ public class BannerService : IBannerService
             banner.Title = form.Title.Trim();
         }
 
-        if (form.DisplayOrder.HasValue)
-            banner.DisplayOrder = form.DisplayOrder.Value;
+        if (form.LinkUrl != null)
+            banner.LinkUrl = NormalizeLinkUrl(form.LinkUrl);
+
+        if (form.Position.HasValue)
+        {
+            EnsureValidPosition(form.Position.Value);
+            banner.Position = form.Position.Value;
+        }
 
         if (form.IsActive.HasValue)
             banner.IsActive = form.IsActive.Value;
@@ -166,6 +183,9 @@ public class BannerService : IBannerService
 
         try
         {
+            if (banner.IsActive)
+                await DeactivateOthersInPositionAsync(banner.Position, banner.Id);
+
             await _unitOfWork.Banners.Update(banner);
             await _unitOfWork.SaveChangesAsync();
         }
@@ -187,7 +207,7 @@ public class BannerService : IBannerService
 
     public async Task<BannerDto> SetBannerActiveAsync(Guid id)
     {
-        _logger.Info($"[SetBannerActive] Sets banner {id} as the homepage banner.");
+        _logger.Info($"[SetBannerActive] Sets banner {id} as the active banner for its position.");
 
         var banner = await _unitOfWork.Banners.GetByIdAsync(id);
         if (banner == null)
@@ -196,18 +216,13 @@ public class BannerService : IBannerService
             throw ErrorHelper.NotFound($"Banner với ID {id} không tồn tại.");
         }
 
-        var others = await _unitOfWork.Banners.GetQueryable()
-            .Where(b => b.IsActive && b.Id != id)
-            .ToListAsync();
-
-        foreach (var other in others)
-            other.IsActive = false;
+        await DeactivateOthersInPositionAsync(banner.Position, banner.Id);
 
         banner.IsActive = true;
-        await _unitOfWork.Banners.UpdateRange(others.Append(banner).ToList());
+        await _unitOfWork.Banners.Update(banner);
         await _unitOfWork.SaveChangesAsync();
 
-        _logger.Success($"[SetBannerActive] Banner {id} is now the homepage banner.");
+        _logger.Success($"[SetBannerActive] Banner {id} is now active for position {banner.Position}.");
         return ToBannerDto(banner);
     }
 
@@ -231,6 +246,34 @@ public class BannerService : IBannerService
 
         _logger.Success($"[DeleteBanner] Banner {id} deleted.");
         return true;
+    }
+
+    private async Task DeactivateOthersInPositionAsync(BannerPosition position, Guid exceptId)
+    {
+        var others = await _unitOfWork.Banners.GetQueryable()
+            .Where(b => b.IsActive && b.Position == position && b.Id != exceptId)
+            .ToListAsync();
+
+        foreach (var other in others)
+            other.IsActive = false;
+    }
+
+    private static void EnsureValidPosition(BannerPosition position)
+    {
+        if (!Enum.IsDefined(position))
+            throw ErrorHelper.BadRequest("Vị trí banner không hợp lệ.");
+    }
+
+    private static string? NormalizeLinkUrl(string? linkUrl)
+    {
+        if (string.IsNullOrWhiteSpace(linkUrl))
+            return null;
+
+        var trimmed = linkUrl.Trim();
+        if (trimmed.Length > 1000)
+            throw ErrorHelper.BadRequest("Link banner không được vượt quá 1000 ký tự.");
+
+        return trimmed;
     }
 
     private async Task EnsureActiveUserAsync(Guid userId)
@@ -285,10 +328,11 @@ public class BannerService : IBannerService
             Id = banner.Id,
             Title = banner.Title,
             ImageUrl = banner.ImageUrl,
+            LinkUrl = banner.LinkUrl,
             FileName = banner.FileName,
             FileType = banner.FileType,
             FileSize = banner.FileSize,
-            DisplayOrder = banner.DisplayOrder,
+            Position = banner.Position,
             IsActive = banner.IsActive,
             UploadedByUserId = banner.UploadedByUserId,
             CreatedAt = banner.CreatedAt

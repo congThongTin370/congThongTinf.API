@@ -116,9 +116,12 @@ public class congThongTinfDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
             entity.Property(e => e.ImageUrl).IsRequired();
+            entity.Property(e => e.LinkUrl).HasMaxLength(1000);
             entity.Property(e => e.FileKey).IsRequired().HasMaxLength(512);
             entity.Property(e => e.FileName).IsRequired().HasMaxLength(256);
             entity.Property(e => e.FileType).IsRequired().HasMaxLength(128);
+            entity.Property(e => e.Position).IsRequired();
+            entity.HasIndex(e => e.Position);
 
             entity.HasOne(e => e.UploadedByUser)
                 .WithMany()

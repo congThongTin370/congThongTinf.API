@@ -109,7 +109,7 @@ public class BannerController : ControllerBase
         try
         {
             var result = await _bannerService.SetBannerActiveAsync(id);
-            return Ok(ApiResult<BannerDto>.Success(result, "200", "Đặt banner hiển thị trang chủ thành công."));
+            return Ok(ApiResult<BannerDto>.Success(result, "200", "Đặt banner hiển thị cho vị trí thành công."));
         }
         catch (Exception ex)
         {
