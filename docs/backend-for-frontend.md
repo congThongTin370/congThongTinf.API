@@ -40,7 +40,7 @@
   - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tăng lượt xem, tạo, sửa, xóa
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
-  - Banner: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiển thị (chỉ Admin ghi)
+  - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
@@ -53,7 +53,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner hiển thị trang chủ. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -813,9 +813,18 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Banner
 
-  Banner trang chủ. File ảnh lưu R2 folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
+  Ảnh banner gắn vào **slot cố định trên layout**. File lưu R2 folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
 
-  Banner đang hiển thị trên trang chủ là bản ghi có `isActive = true`. `PUT /api/admin/banners/{id}/active` đặt đúng một banner thành banner đó và tắt `isActive` của các banner còn lại. Trang chủ gọi `GET /api/admin/banners?isActive=true`.
+  Không còn `displayOrder`. Vị trí là enum `BannerPosition` (số):
+
+  | Tên | Số | Chỗ trên UI |
+  | --- | --- | --- |
+  | `Header` | `0` | Thanh banner trên cùng, mọi trang |
+  | `HomeMid` | `1` | Dải ngang giữa trang chủ |
+
+  Mỗi vị trí có **đúng một** banner đang hiện: bản ghi `isActive = true` của `position` đó. Bật một banner (upload/`PUT` với `isActive=true`, hoặc `PUT /{id}/active`) thì server tắt `isActive` của các banner **cùng `position`**, không đụng slot khác. Header và HomeMid có thể cùng hiện.
+
+  Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0`. Trang chủ, dải giữa: `position=1`. Dùng `items[0].imageUrl`; `linkUrl` khác null thì bọc `<a href>`. Không có phần tử thì ẩn slot.
 
   | Method | Path | Thành công |
   | --- | --- | --- |
@@ -823,10 +832,20 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | GET | `/api/admin/banners/{id}` | Chi tiết |
   | POST | `/api/admin/banners` | Tạo mới, `multipart/form-data` |
   | PUT | `/api/admin/banners/{id}` | Sửa, `multipart/form-data` |
-  | PUT | `/api/admin/banners/{id}/active` | Đặt banner này là banner đang hiển thị |
+  | PUT | `/api/admin/banners/{id}/active` | Đặt banner này là banner đang hiện của **cùng vị trí** |
   | DELETE | `/api/admin/banners/{id}` | Xóa bản ghi và file trên R2 |
 
-  `GET /api/admin/banners` — public, không cần token. Query `pageIndex` (mặc định `1`, `0` lấy hết), `pageSize` (mặc định `10`), `search` (theo tiêu đề), `isActive` (lọc đang hiện / ẩn). Sắp theo `displayOrder` rồi `createdAt` giảm dần. `value.data` là `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Message `Lấy danh sách banner thành công.` Trang chủ dùng `isActive=true` để lấy banner đang display. Sau `PUT /{id}/active` danh sách này có đúng một phần tử.
+  `GET /api/admin/banners` — public, không cần token.
+
+  | Param | Kiểu | Mặc định | Rule |
+  | --- | --- | --- | --- |
+  | `pageIndex` | number, optional | `1` | `0` = trả toàn bộ |
+  | `pageSize` | number, optional | `10` | Nếu `<= 0` server gán lại `10` |
+  | `search` | string, optional | — | Lọc `title` chứa chuỗi, không phân biệt hoa thường |
+  | `position` | number, optional | — | `0` Header, `1` HomeMid. Giá trị khác: HTTP `400`, `Vị trí banner không hợp lệ.` |
+  | `isActive` | bool, optional | — | Lọc đang hiện / ẩn |
+
+  Sắp theo `position` rồi `createdAt` giảm dần. `value.data` là `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Message `Lấy danh sách banner thành công.`
 
   `GET /api/admin/banners/{id}` — public, không cần token. Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: message `Lấy banner thành công.`
 
@@ -836,8 +855,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | --- | --- | --- |
   | `file` | Có | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` |
   | `title` | Không | Trống thì lấy tên file bỏ phần mở rộng |
-  | `displayOrder` | Không | Mặc định `0` |
-  | `isActive` | Không | Mặc định `true` |
+  | `linkUrl` | Không | URL khi click banner. Trống/`null` thì `linkUrl` là `null`. Dài hơn 1000 ký tự: HTTP `400`, `Link banner không được vượt quá 1000 ký tự.` |
+  | `position` | Không | Số `0` hoặc `1`. Mặc định `0` (Header). Giá trị khác: HTTP `400`, `Vị trí banner không hợp lệ.` |
+  | `isActive` | Không | Mặc định `true`. `true` thì tắt các banner active khác **cùng `position`** |
 
   Thành công: HTTP `200`, `value.data` là `BannerDto`, message `Tải banner thành công.`
 
@@ -848,20 +868,21 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Token không phải Admin: HTTP `403` (framework).
   - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
 
-  Upload tạo bản ghi mới, không thay banner cũ.
+  Upload tạo bản ghi mới. Không gửi `displayOrder`.
 
-  `PUT /api/admin/banners/{id}` — cần token, role `Admin`. `multipart/form-data`. Field bỏ trống thì giữ giá trị cũ. Gửi `file` thì thay ảnh và xóa file cũ trên R2. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
+  `PUT /api/admin/banners/{id}` — cần token, role `Admin`. `multipart/form-data`. Field bỏ trống thì giữ giá trị cũ. Gửi `file` thì thay ảnh và xóa file cũ trên R2. Sau khi sửa, nếu banner `isActive = true` thì exclusive theo `position` hiện tại (kể cả khi vừa đổi vị trí). Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
 
   | Field | Bắt buộc | Ghi chú |
   | --- | --- | --- |
   | `title` | Không | Gửi chuỗi rỗng: HTTP `400`, `Tiêu đề banner là bắt buộc.` |
-  | `displayOrder` | Không | |
+  | `linkUrl` | Không | Gửi chuỗi rỗng thì xóa link (`null`) |
+  | `position` | Không | `0` hoặc `1`. Giá trị khác: HTTP `400` |
   | `isActive` | Không | |
   | `file` | Không | Cùng quy tắc loại ảnh và 10 MB với lúc tạo |
 
   Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `BannerDto`, message `Cập nhật banner thành công.`
 
-  `PUT /api/admin/banners/{id}/active` — cần token, role `Admin`. Không body. Đặt `isActive = true` cho `{id}` và `isActive = false` cho mọi banner khác. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: HTTP `200`, `value.data` là `BannerDto` của banner đang hiển thị (`isActive` = `true`), message `Đặt banner hiển thị trang chủ thành công.`
+  `PUT /api/admin/banners/{id}/active` — cần token, role `Admin`. Không body. Đặt `isActive = true` cho `{id}` và `isActive = false` cho banner khác **cùng `position`**. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: HTTP `200`, `value.data` là `BannerDto` vừa được bật, message `Đặt banner hiển thị cho vị trí thành công.`
 
   `DELETE /api/admin/banners/{id}` — cần token, role `Admin`. Xóa hàng trong DB rồi xóa file R2. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `true`, message `Xóa banner thành công.`
 
@@ -872,11 +893,12 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `id` | Guid |
   | `title` | string |
   | `imageUrl` | string, URL public ảnh |
+  | `linkUrl` | string hoặc null |
   | `fileName` | string |
   | `fileType` | string |
   | `fileSize` | number, bytes |
-  | `displayOrder` | number |
-  | `isActive` | bool, `true` khi đây là banner đang hiển thị trên trang chủ |
+  | `position` | number `0` Header, `1` HomeMid |
+  | `isActive` | bool, `true` khi đang hiện ở slot `position` |
   | `uploadedByUserId` | Guid |
   | `createdAt` | datetime UTC |
 
@@ -933,8 +955,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Map `user.roleName`: `0` Admin, `1` Journalist.
   - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
   - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
+  - Map `banner.position`: `0` Header (mọi trang), `1` HomeMid (dải giữa trang chủ). Không còn `displayOrder`.
   - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner hiển thị (`PUT /api/admin/banners/{id}/active`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Trang chủ gọi `GET /api/admin/banners?isActive=true` không cần token; banner đang display là phần tử có `isActive = true`.
+  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.
