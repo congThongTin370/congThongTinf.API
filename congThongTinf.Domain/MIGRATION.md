@@ -1,11 +1,3 @@
-Tạo migration:
+Không chạy CLI EF Core (`dotnet ef`, `Add-Migration`, `Update-Database`, `Remove-Migration`).
 
-Add-Migration InitialCreate -Project congThongTinf.Domain -StartupProject congThongTinf.API
-
-Cập nhật database:
-
-Update-Database -Project congThongTinf.Domain -StartupProject congThongTinf.API
-
-Xóa migration gần nhất nếu chưa áp dụng:
-
-Remove-Migration -Project congThongTinf.Domain -StartupProject congThongTinf.API
+API tự áp dụng migration đang chờ khi khởi động, qua `Database.Migrate()` trong `congThongTinf.API/Architecture/MigrationExtensions.cs`.

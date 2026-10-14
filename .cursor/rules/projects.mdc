@@ -40,3 +40,4 @@ alwaysApply: true
 - Do not add dependencies without a clear reason.
 - Follow existing naming and coding conventions.
 - For large changes, explain the implementation plan before modifying code.
+- Do not run the EF Core CLI (`dotnet ef`, `Add-Migration`, `Update-Database`, `Remove-Migration`). The API applies pending migrations itself on startup through `Database.Migrate()`.

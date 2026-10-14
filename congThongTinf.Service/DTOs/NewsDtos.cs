@@ -15,6 +15,16 @@ public class NewsQueryDto
     public DateTime? ToDate { get; set; }
 
     public List<Guid>? CategoryIds { get; set; }
+
+    public string? Search { get; set; }
+
+    public NewsSortBy SortBy { get; set; } = NewsSortBy.CreatedAt;
+}
+
+public enum NewsSortBy
+{
+    CreatedAt = 0,
+    ViewCount = 1
 }
 
 public class NewsDto

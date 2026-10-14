@@ -27,6 +27,8 @@ public class congThongTinfDbContext : DbContext
 
     public DbSet<Banner> Banners { get; set; }
 
+    public DbSet<Leader> Leaders { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -127,6 +129,16 @@ public class congThongTinfDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UploadedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Leader>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Position).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Rank).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ImageUrl).HasMaxLength(1000);
+            entity.HasIndex(e => e.DisplayOrder);
         });
     }
 }

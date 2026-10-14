@@ -54,8 +54,11 @@ public class NewsService : INewsService
             .Distinct()
             .ToList();
 
+        if (!Enum.IsDefined(query.SortBy))
+            throw ErrorHelper.BadRequest("Cách sắp xếp không hợp lệ.");
+
         _logger.Info(
-            $"[GetAllNews] page={query.PageIndex}, size={query.PageSize}, from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}");
+            $"[GetAllNews] page={query.PageIndex}, size={query.PageSize}, from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}, search={query.Search}, sortBy={query.SortBy}");
 
         var articles = _unitOfWork.News.GetQueryable()
             .Include(n => n.Category)
@@ -71,7 +74,15 @@ public class NewsService : INewsService
         if (categoryIds is { Count: > 0 })
             articles = articles.Where(n => categoryIds.Contains(n.CategoryId));
 
-        articles = articles.OrderByDescending(n => n.CreatedAt);
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var keyword = query.Search.Trim().ToLower();
+            articles = articles.Where(n => !string.IsNullOrEmpty(n.Title) && n.Title.ToLower().Contains(keyword));
+        }
+
+        articles = query.SortBy == NewsSortBy.ViewCount
+            ? articles.OrderByDescending(n => n.ViewCount).ThenByDescending(n => n.CreatedAt)
+            : articles.OrderByDescending(n => n.CreatedAt);
 
         var total = await articles.CountAsync();
 

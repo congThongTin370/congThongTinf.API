@@ -48,3 +48,4 @@ Backend projects:
 - Prefer existing project patterns over inventing new ones.
 - Keep implementations simple and appropriate for an MVP.
 - Do not add dependencies unless necessary.
+- Do not run the EF Core CLI (`dotnet ef`, `Add-Migration`, `Update-Database`, `Remove-Migration`). The API applies pending migrations itself on startup through `Database.Migrate()`.

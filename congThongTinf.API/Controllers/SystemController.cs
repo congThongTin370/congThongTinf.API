@@ -30,13 +30,15 @@ namespace congThongTinf.API.Controllers
 
                 var seededUsersRoles = await SeedUsersRoles();
                 var seededCount = await SeedNews();
+                var leaderCount = await SeedLeaders();
                 return Ok(ApiResult<object>.Success(new
                 {
                     Message = "Data seeded successfully.",
                     RoleCount = seededUsersRoles.RoleCount,
                     AdminCount = seededUsersRoles.AdminCount,
                     JournalistCount = seededUsersRoles.JournalistCount,
-                    NewsCount = seededCount
+                    NewsCount = seededCount,
+                    LeaderCount = leaderCount
                 }));
             }
             catch (DbUpdateException dbEx)
@@ -74,6 +76,30 @@ namespace congThongTinf.API.Controllers
             {
                 _logger.Error($"General error: {ex.Message}");
                 return StatusCode(500, "Error seeding roles: General failure.");
+            }
+        }
+
+        [HttpPost("seed-leaders")]
+        public async Task<IActionResult> SeedLeadersData()
+        {
+            try
+            {
+                var leaderCount = await SeedLeaders();
+                return Ok(ApiResult<object>.Success(new
+                {
+                    Message = "Leaders seeded successfully.",
+                    LeaderCount = leaderCount
+                }));
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.Error($"Database update error: {dbEx.Message}");
+                return StatusCode(500, "Error seeding leaders: Database issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"General error: {ex.Message}");
+                return StatusCode(500, "Error seeding leaders: General failure.");
             }
         }
 
@@ -139,6 +165,7 @@ namespace congThongTinf.API.Controllers
                     var tablesToDelete = new List<Func<Task>>
                     {
                         () => context.News.ExecuteDeleteAsync(),
+                        () => context.Leaders.ExecuteDeleteAsync(),
                         () => context.Banners.ExecuteDeleteAsync(),
                         () => context.Documents.ExecuteDeleteAsync(),
                         () => context.Users.ExecuteDeleteAsync(),
@@ -264,6 +291,51 @@ namespace congThongTinf.API.Controllers
             if (added > 0)
                 await _context.SaveChangesAsync();
 
+            return added;
+        }
+
+        private async Task<int> SeedLeaders()
+        {
+            var now = DateTime.UtcNow;
+            var leaders = new (string Position, string Rank, string FullName, int DisplayOrder)[]
+            {
+                ("Sư đoàn trưởng", "Đại tá", "Cù Đức Hường", 1),
+                ("Chính ủy", "Đại tá", "Lê Văn Hợi", 2),
+                ("Phó sư đoàn trưởng / TMT", "Đại tá", "Đỗ Mạnh Hùng", 3),
+                ("Phó sư đoàn trưởng / Quân sự", "Đại tá", "Phan Việt Anh", 4),
+                ("Phó sư đoàn trưởng / Quân huấn", "Đại tá", "Trần Đức Ba", 5),
+                ("Phó Chính ủy / kiêm CNUBKT", "Đại tá", "Nguyễn Quốc Long", 6)
+            };
+
+            var names = leaders.Select(l => l.FullName).ToArray();
+            var existing = await _context.Leaders
+                .Where(l => names.Contains(l.FullName))
+                .Select(l => l.FullName)
+                .ToListAsync();
+
+            var added = 0;
+            foreach (var leader in leaders)
+            {
+                if (existing.Contains(leader.FullName))
+                    continue;
+
+                _context.Leaders.Add(new Leader
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = leader.FullName,
+                    Position = leader.Position,
+                    Rank = leader.Rank,
+                    DisplayOrder = leader.DisplayOrder,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                added++;
+            }
+
+            if (added > 0)
+                await _context.SaveChangesAsync();
+
+            _logger.Success($"Đã seed {added} lãnh đạo đơn vị.");
             return added;
         }
 

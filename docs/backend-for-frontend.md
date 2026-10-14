@@ -32,6 +32,7 @@
   - `News`, `Category`
   - `Document`
   - `Banner`
+  - `Leader`
 
   API đã mở:
 
@@ -452,10 +453,12 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `fromDate` | date/datetime, optional | — | Lọc `CreatedAt >=` đầu ngày |
   | `toDate` | date/datetime, optional | — | Lọc `CreatedAt <` ngày kế tiếp, tức gồm cả ngày `toDate` |
   | `categoryIds` | Guid lặp lại, optional | — | `?categoryIds={guid}&categoryIds={guid}` |
+  | `search` | string, optional | — | Lọc `title` chứa chuỗi, không phân biệt hoa thường |
+  | `sortBy` | number, optional | `0` | `0` = `CreatedAt` giảm dần. `1` = `ViewCount` giảm dần, cùng lượt xem thì `CreatedAt` giảm dần. Giá trị khác: HTTP `400`, `Cách sắp xếp không hợp lệ.` |
 
   `fromDate` lớn hơn `toDate` (so theo ngày): HTTP `400`, message `Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.`
 
-  Danh sách sort `CreatedAt` giảm dần. Trả mọi status, kể cả Draft và Pending.
+  Mặc định sort `CreatedAt` giảm dần. Trả mọi status, kể cả Draft và Pending. Tin nhiều view: `GET /api/news?sortBy=1`.
 
   `value.data` là object phân trang: `items` (mảng `NewsDto` của trang), `totalCount` (tổng số bản ghi sau filter), `currentPage`, `totalPages`, `pageSize`, `hasPrevious`, `hasNext`.
 
@@ -931,12 +934,13 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   | Method | Path | Thành công |
   | --- | --- | --- |
-  | POST | `/api/system/seed-all-data` | Xóa toàn bộ rồi seed role, 2 admin, 2 phóng viên, category, bài mẫu |
+  | POST | `/api/system/seed-all-data` | Xóa toàn bộ rồi seed role, 2 admin, 2 phóng viên, category, bài mẫu, 6 lãnh đạo Ban Chỉ huy |
   | POST | `/api/system/seed-users-roles` | Thêm role, admin và phóng viên nếu chưa có |
+  | POST | `/api/system/seed-leaders` | Thêm 6 lãnh đạo Ban Chỉ huy nếu họ tên chưa có. `imageUrl` để trống |
   | POST | `/api/system/seed-news` | Thêm category và 4 bài mẫu |
-  | POST | `/api/system/clear-database` | Xóa News, Banners, Documents, Users, Roles, Categories |
+  | POST | `/api/system/clear-database` | Xóa News, Leaders, Banners, Documents, Users, Roles, Categories |
 
-  Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `journalistCount`, `newsCount`).
+  Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `journalistCount`, `newsCount`, `leaderCount`).
 
   `seed-all-data` xóa dữ liệu trước. Gọi lại sẽ mất tài khoản phóng viên đã tạo.
 
