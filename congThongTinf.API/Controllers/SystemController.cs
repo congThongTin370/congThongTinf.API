@@ -13,8 +13,6 @@ namespace congThongTinf.API.Controllers
         private readonly congThongTinfDbContext _context;
         private readonly ILoggerService _logger;
 
-
-
         public SystemController(congThongTinfDbContext context, ILoggerService logger)
         {
             _context = context;
@@ -347,48 +345,35 @@ namespace congThongTinf.API.Controllers
 
             var articles = new List<News>
             {
-                new()
+                 new()
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Sư đoàn 370 tổ chức hội nghị giao ban tháng 10",
-                    Summary = "Các đơn vị báo cáo kết quả huấn luyện, sẵn sàng chiến đấu và công tác bảo đảm trong tháng.",
+                    Title = "Đảng ủy Sư đoàn 370 tổ chức Hội thi Bí thư chi bộ năm 2026",
+                    Summary = "Trong 2 ngày (19 và 20-8), Đảng ủy Sư đoàn 370 tổ chức Hội thi Bí thư chi bộ năm 2026. Theo dõi, chỉ đạo Hội thi có Đại tá Lê Văn Hợi - Bí thư Đảng ủy, Chính ủy Sư đoàn; các đồng chí trong Thường vụ Đảng ủy, chỉ huy Sư đoàn; đại biểu Phòng Tổ chức, Cục Chính trị, Quân chủng. Tham gia Hội thi có các đồng chí bí thư chi bộ đạt thành tích cao tại hội thi bí thư chi bộ cấp cơ sở trong toàn Đảng bộ Sư đoàn.",
+                    Content = "![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/bf47c61894894cb685cd6aa8b0f2255f.jpg)Các đại biểu dự khai mạc hội thi chụp ảnh lưu niệm với các thí sinh dự thi\r\n\r\nTại Hội thi, các thí sinh tham gia các nội dung: Thi chấm điểm sổ sách; thi lý thuyết bằng hình thức trắc nghiệm, vấn đáp; thi thực hành soạn thảo văn kiện và chủ trì hội nghị chi bộ. Ở phần thi chấm điểm sổ sách, Ban Giám khảo tập trung đánh giá hệ thống sổ sách công tác Đảng, công tác chính trị của chi bộ; các nghị quyết, kế hoạch, chương trình công tác; hồ sơ kiểm tra, giám sát... Phần thi lý thuyết gồm 30 câu hỏi trắc nghiệm và nội dung vấn đáp về kiến thức chuyên môn. Đối với phần thi thực hành, các thí sinh thực hành soạn thảo văn kiện trên máy tính theo nội dung câu hỏi của Ban Giám khảo; thực hành chủ trì hội nghị chi bộ và xử lý các tình huống gắn với thực tiễn công tác xây dựng Đảng, hoạt động lãnh đạo của chi bộ.\r\n\r\nVới sự chuẩn bị chu đáo, các thí sinh đã thể hiện khá toàn diện kiến thức, kỹ năng, phương pháp điều hành và khả năng vận dụng các nguyên tắc, quy định của Đảng vào thực tiễn. Nhiều đồng chí có sự chuẩn bị công phu, trả lời đúng trọng tâm, xử lý tình huống linh hoạt, sát thực tế đơn vị.\r\n\r\n![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/647db32e16e7479a87637307f7e0dd79.jpg)Các thi sinh thực hiện phần thi lý thuyết.Phát biểu bế mạc Hội thi, Đại tá Lê Văn Hợi - Bí thư Đảng ủy, Chính ủy Sư đoàn ghi nhận, biểu dương tinh thần trách nhiệm, sự nỗ lực, cố gắng của các thí sinh và các cơ quan, đơn vị trong công tác chuẩn bị, tổ chức Hội thi. Đồng chí nhấn mạnh, kết quả Hội thi không chỉ là cơ sở để đánh giá năng lực của đội ngũ bí thư chi bộ mà quan trọng hơn, còn góp phần nâng cao nhận thức, trách nhiệm và phương pháp tiến hành công tác xây dựng Đảng ở cơ sở. Đồng thời yêu cầu các cấp ủy, tổ chức đảng tiếp tục quan tâm bồi dưỡng, rèn luyện đội ngũ bí thư chi bộ; chú trọng đổi mới nội dung, phương pháp sinh hoạt; nâng cao chất lượng ra nghị quyết và tổ chức thực hiện nghị quyết; gắn công tác xây dựng Đảng với lãnh đạo thực hiện thắng lợi nhiệm vụ chính trị của từng cơ quan, đơn vị.![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/6c3214693efe480394cd284aa5314d53.jpg)Đại tá Lê Văn Hợi - Bí thư Đảng ủy, Chính ủy Sư đoàn 370 trao giấy khen tặng các thí sinh đạt giải Nhất và giải Nhì tại Hội thi.Kết thúc Hội thi, Ban Tổ chức đã công nhận 15 đồng chí đạt giỏi; trao 2 giải Nhất, 3 giải Nhì, 4 giải Ba và 6 giải khuyến khích cho các thí sinh đạt kết quả cao tại Hội thi.",
+                    CategoryId = categories["Tin tức đơn vị"],
+                    CoverImageUrl = "https://file3.qdnd.vn/data/images/0/2022/01/15/thuyan/e%20917.jpg?dpi=150&quality=100&w=870",
+                    AuthorId = authorId,
+                    Status = NewsStatus.Draft,
+                    ViewCount = 0,
+                    CreatedAt = now.AddHours(-3),
+                    UpdatedAt = now.AddHours(-1)
+                },
+                 new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
+                    Summary = "Dự thảo kế hoạch kiểm tra bảo dưỡng máy bay và trang bị mặt đất trong tháng tới.",
                     Content = BuildArticleContent(Random.Shared),
                     CategoryId = categories["Tin tức đơn vị"],
+                    CoverImageUrl = "https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/c71959d435584f0e9801b09f37d8bfaf.jpg",
                     AuthorId = authorId,
-                    Status = NewsStatus.Published,
-                    PublishedAt = now.AddDays(-2),
-                    ViewCount = 48,
-                    CreatedAt = now.AddDays(-3),
-                    UpdatedAt = now.AddDays(-2)
-                },
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Trung đoàn hoàn thành đợt bay huấn luyện đêm",
-                    Summary = "Phi công và tổ bay hoàn thành đủ giáo án bay đêm trong điều kiện thời tiết phức tạp.",
-                    Content = BuildArticleContent(Random.Shared),
-                    CategoryId = categories["Huấn luyện"],
-                    AuthorId = authorId,
-                    Status = NewsStatus.Published,
-                    PublishedAt = now.AddDays(-1),
-                    ViewCount = 31,
-                    CreatedAt = now.AddDays(-2),
-                    UpdatedAt = now.AddDays(-1)
-                },
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Sinh hoạt chính trị chủ đề truyền thống Sư đoàn",
-                    Summary = "Cán bộ, chiến sĩ ôn lại truyền thống chiến đấu và những tấm gương điển hình của đơn vị.",
-                    Content = BuildArticleContent(Random.Shared),
-                    CategoryId = categories["Chính trị"],
-                    AuthorId = authorId,
-                    Status = NewsStatus.Pending,
+                    Status = NewsStatus.Draft,
                     ViewCount = 0,
-                    CreatedAt = now.AddHours(-8),
-                    UpdatedAt = now.AddHours(-6)
+                    CreatedAt = now.AddHours(-3),
+                    UpdatedAt = now.AddHours(-1)
                 },
-                new()
+                 new()
                 {
                     Id = Guid.NewGuid(),
                     Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
@@ -401,6 +386,36 @@ namespace congThongTinf.API.Controllers
                     ViewCount = 0,
                     CreatedAt = now.AddHours(-3),
                     UpdatedAt = now.AddHours(-1)
+                },
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Thành phố Hồ Chí Minh tổ chức Lễ truy điệu và an táng 731 hài cốt liệt sĩ được tìm kiếm, quy tập tại Công viên Lê Thị Riêng",
+                    Summary = "Sáng 14-10, Đảng bộ, chính quyền, lực lượng vũ trang và nhân dân TP Hồ Chí Minh tổ chức trọng thể Lễ viếng, Lễ truy điệu và an táng 731 hài cốt liệt sĩ được tìm kiếm, quy tập tại Công viên Lê Thị Riêng. Tham dự buổi lễ có đồng chí Lê Minh Hưng - Ủy viên Bộ Chính trị, Thủ tướng Chính phủ nước Cộng hòa xã hội chủ nghĩa Việt Nam; các đồng chí lãnh đạo, nguyên lãnh đạo Đảng, Nhà nước; đại diện lãnh đạo các ban, bộ, ngành Trung ương, Quân đội và địa phương; đại biểu các đơn vị lực lượng vũ trang, cùng đông đảo cán bộ, chiến sĩ và nhân dân.",
+                    Content = "> *Thủ tướng Chính phủ Lê Minh Hưng và nguyên Ủy viên Bộ Chính trị, nguyên Chủ tịch nước Nguyễn Minh Triết đưa hài cốt các liệt sĩ rời Công viên Lê Thị Riêng.*\r\n\r\nTừ 7 giờ 30 phút, lễ dâng hoa, dâng hương được tổ chức tại Tượng đài cố Tổng Bí thư Trần Phú, Nhà bia liệt sĩ và các địa điểm trong khuôn viên Công viên Lê Thị Riêng. Đúng 8 giờ, Lễ viếng, Lễ truy điệu chính thức bắt đầu với các nghi thức tưởng niệm, đọc điếu văn và mặc niệm. Sau buổi lễ, 731 hài cốt liệt sĩ được đưa về an táng tại Nghĩa trang Liệt sĩ TP Hồ Chí Minh (phường Long Bình), trong đó có 698 hài cốt được an táng riêng lẻ và 33 hài cốt được an táng chung trong một phần mộ tập thể.\r\n\r\n*Đây là hoạt động có ý nghĩa chính trị, xã hội và nhân văn sâu sắc, thể hiện đạo lý “Uống nước nhớ nguồn”, “Đền ơn đáp nghĩa” của dân tộc; đồng thời góp phần giáo dục truyền thống yêu nước, chủ nghĩa anh hùng cách mạng, bồi đắp niềm tự hào và ý thức trách nhiệm của cán bộ, chiến sĩ và nhân dân, nhất là thế hệ trẻ, đối với sự nghiệp xây dựng và bảo vệ Tổ quốc. Sau bao năm nằm lại, các anh hùng, liệt sĩ đã trở về trong vòng tay quê hương, trong tình cảm tri ân sâu nặng và lòng biết ơn vô hạn của các thế hệ hôm nay và mai sau.*",
+                    CategoryId = categories["Tin tức đơn vị"],
+                    CoverImageUrl="https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/b5d79d57-84b7-434c-b82e-786e2f9b334e/a731d45b0b1f4d4290a1b24ed830d952.png",
+                    AuthorId = authorId,
+                    Status = NewsStatus.Published,
+                    PublishedAt = now.AddDays(-2),
+                    ViewCount = 48,
+                    CreatedAt = now.AddDays(-3),
+                    UpdatedAt = now.AddDays(-2)
+                },
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Cụm cơ quan Sư đoàn 370 phát động đợt thi đua cao điểm “80 ngày hành động quyết thắng - Viết tiếp bản hùng ca”",
+                    Summary = "Sáng 5-10, Cụm cơ quan Sư đoàn 370 tổ chức Lễ phát động đợt thi đua cao điểm với chủ đề “80 ngày thi đua Quyết thắng - Viết tiếp bản hùng ca”, lập thành tích chào mừng kỷ niệm 80 năm Ngày Toàn quốc kháng chiến (19-12-1946 / 19-12-2026), 82 năm Ngày thành lập Quân đội nhân dân Việt Nam (22-12-1944 / 22-12-2026) và 37 năm Ngày hội Quốc phòng toàn dân (22-12-1989 / 22-12-2026). Đại tá Lê Văn Hợi - Bí thư Đảng ủy, Chính ủy Sư đoàn 370, dự và chỉ đạo buổi lễ.",
+                    Content = "> Đại tá Lê Văn Hợi - Chính ủy Sư đoàn 370 phát biểu chỉ đạo tại Lễ phát động.\r\n\r\nĐợt thi đua diễn ra trong 80 ngày, từ ngày 5-10 đến hết ngày 25-12-2026, tập trung vào ba nội dung trọng tâm: Đẩy mạnh giáo dục, tuyên truyền, nâng cao nhận thức, trách nhiệm và ý chí quyết tâm cho cán bộ, chiến sĩ; thi đua hoàn thành cao nhất nhiệm vụ chính trị; xây dựng chính quy, chấp hành pháp luật, kỷ luật; đẩy mạnh khoa học, công nghệ, đổi mới sáng tạo, chuyển đổi số và cải cách hành chính.\r\n\r\n![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/b5d79d57-84b7-434c-b82e-786e2f9b334e/be41587725204fbf8f6475aae411e2f3.jpg)Các đại biểu tham dự Lễ phát động thi đua cao điểm.\r\n\r\nTheo đó, Cụm thi đua phấn đấu 100% cán bộ, chiến sĩ có bản lĩnh chính trị vững vàng, sẵn sàng nhận và hoàn thành tốt nhiệm vụ; duy trì nghiêm chế độ sẵn sàng chiến đấu, quản lý vùng trời, quản lý, điều hành bay; tổ chức huấn luyện chặt chẽ, nhất là huấn luyện bay, bảo đảm an toàn tuyệt đối. Phấn đấu không để xảy ra vi phạm pháp luật, kỷ luật và mất an toàn trong các hoạt động. Đồng thời, đẩy mạnh ứng dụng khoa học, công nghệ, chuyển đổi số, phấn đấu 100% văn bản, công việc được giải quyết trên môi trường điện tử.\r\n\r\nThông qua đợt thi đua, Cụm cơ quan Sư đoàn 370 quyết tâm tạo khí thế thi đua sôi nổi, phát huy tinh thần đoàn kết, trách nhiệm, chủ động, sáng tạo của cán bộ, chiến sĩ; phấn đấu hoàn thành thắng lợi nhiệm vụ năm 2026, góp phần xây dựng cơ quan, đơn vị vững mạnh toàn diện “mẫu mực, tiêu biểu”.",
+                    CategoryId = categories["Tin tức đơn vị"],
+                    AuthorId = authorId,
+                    CoverImageUrl="https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/b5d79d57-84b7-434c-b82e-786e2f9b334e/8c8efd8261eb443691b1e03dfbd85d58.jpg",
+                    Status = NewsStatus.Published,
+                    PublishedAt = now.AddDays(-2),
+                    ViewCount = 48,
+                    CreatedAt = now.AddDays(-3),
+                    UpdatedAt = now.AddDays(-2)
                 }
             };
 
