@@ -161,6 +161,7 @@ public static class IocContainer
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IBannerService, BannerService>();
+        services.AddScoped<ILeaderService, LeaderService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 

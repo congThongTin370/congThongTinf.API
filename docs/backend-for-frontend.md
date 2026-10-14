@@ -42,6 +42,7 @@
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
+  - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
@@ -54,7 +55,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -814,6 +815,53 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   Thành công: HTTP `200`, `value.data` là `true`, message `Xóa người dùng thành công.`
 
+  ## Leader
+
+  Thủ trưởng trên dải Ban Chỉ huy. Metadata bảng `Leaders`. Mọi endpoint dưới `LeaderController`, route `api/leaders`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action. Body JSON.
+
+  `imageUrl` là URL ảnh (hoặc `null`). Không upload file trên endpoint này. Gửi chuỗi rỗng khi tạo hoặc sửa thì lưu `null`.
+
+  | Method | Path | Thành công |
+  | --- | --- | --- |
+  | GET | `/api/leaders` | Danh sách, sắp theo `displayOrder` rồi `fullName` |
+  | GET | `/api/leaders/{id}` | Chi tiết |
+  | POST | `/api/leaders` | Tạo mới |
+  | PUT | `/api/leaders/{id}` | Sửa từng field được gửi |
+  | DELETE | `/api/leaders/{id}` | Xóa hàng trong DB |
+
+  `GET /api/leaders` — public. `value.data` là mảng `LeaderDto`. Message `Lấy danh sách thủ trưởng thành công.`
+
+  `GET /api/leaders/{id}` — public. Không tồn tại: HTTP `404`, `Thủ trưởng với ID {id} không tồn tại.` Thành công: message `Lấy thủ trưởng thành công.`
+
+  `POST /api/leaders` — cần token, role `Admin`.
+
+  | Field | Bắt buộc | Rule |
+  | --- | --- | --- |
+  | `fullName` | Có | Không được chỉ khoảng trắng. Tối đa 256 ký tự |
+  | `position` | Có | Chức vụ. Tối đa 200 ký tự |
+  | `rank` | Có | Cấp bậc. Tối đa 100 ký tự |
+  | `imageUrl` | Không | Tối đa 1000 ký tự. Trống thì `null` |
+  | `displayOrder` | Không | Số nguyên, mặc định `0` |
+
+  Thiếu họ tên: HTTP `400`, `Họ tên thủ trưởng là bắt buộc.` Thiếu chức vụ: `Chức vụ là bắt buộc.` Thiếu cấp bậc: `Cấp bậc là bắt buộc.` Vượt độ dài: HTTP `400` với message tương ứng. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Thành công: HTTP `200`, `value.data` là `LeaderDto`, message `Tạo thủ trưởng thành công.`
+
+  `PUT /api/leaders/{id}` — cần token, role `Admin`. Field không gửi thì giữ nguyên. Gửi chuỗi rỗng cho `fullName`, `position` hoặc `rank`: HTTP `400`. Gửi `imageUrl` rỗng thì xóa ảnh (`null`). Không tồn tại: HTTP `404`. Thành công: message `Cập nhật thủ trưởng thành công.`
+
+  `DELETE /api/leaders/{id}` — cần token, role `Admin`. Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `true`, message `Xóa thủ trưởng thành công.`
+
+  ### LeaderDto
+
+  | Field | Kiểu |
+  | --- | --- |
+  | `id` | Guid |
+  | `fullName` | string |
+  | `position` | string, chức vụ |
+  | `rank` | string, cấp bậc |
+  | `imageUrl` | string hoặc null |
+  | `displayOrder` | number |
+  | `createdAt` | datetime UTC |
+  | `updatedAt` | datetime UTC |
+
   ## Banner
 
   Ảnh banner gắn vào **slot cố định trên layout**. File lưu R2 folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
@@ -950,8 +998,8 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST /api/documents`.
-  - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}` là public.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
+  - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
   - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
   - Đọc payload ở `response.value.data`.
@@ -963,5 +1011,5 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`.
+  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

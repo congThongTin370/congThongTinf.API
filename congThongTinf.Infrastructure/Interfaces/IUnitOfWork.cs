@@ -15,5 +15,7 @@ public interface IUnitOfWork : IDisposable
 
     IGenericRepository<Banner> Banners { get; }
 
+    IGenericRepository<Leader> Leaders { get; }
+
     Task<int> SaveChangesAsync();
 }
