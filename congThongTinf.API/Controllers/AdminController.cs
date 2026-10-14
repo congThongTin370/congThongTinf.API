@@ -13,13 +13,11 @@ namespace congThongTinf.API.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
-    private readonly IAdminService _adminService;
     private readonly IUserService _userService;
     private readonly IClaimsService _claimsService;
 
-    public AdminController(IAdminService adminService, IUserService userService, IClaimsService claimsService)
+    public AdminController(IUserService userService, IClaimsService claimsService)
     {
-        _adminService = adminService;
         _userService = userService;
         _claimsService = claimsService;
     }
@@ -112,28 +110,6 @@ public class AdminController : ControllerBase
         {
             var statusCode = ExceptionUtils.ExtractStatusCode(ex);
             var errorResponse = ExceptionUtils.CreateErrorResponse<bool>(ex);
-            return StatusCode(statusCode, errorResponse);
-        }
-    }
-
-    [HttpPost("banners")]
-    [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(ApiResult<BannerDto>), 200)]
-    [ProducesResponseType(typeof(ApiResult<BannerDto>), 400)]
-    public async Task<IActionResult> UploadBanner([FromForm] UploadBannerForm form)
-    {
-        try
-        {
-            var result = await _adminService.UploadBannerAsync(
-                _claimsService.CurrentUserId,
-                form,
-                HttpContext.RequestAborted);
-            return Ok(ApiResult<BannerDto>.Success(result, "200", "Tải banner thành công."));
-        }
-        catch (Exception ex)
-        {
-            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
-            var errorResponse = ExceptionUtils.CreateErrorResponse<BannerDto>(ex);
             return StatusCode(statusCode, errorResponse);
         }
     }

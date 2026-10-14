@@ -14,6 +14,28 @@ public class UploadBannerForm
     public bool IsActive { get; set; } = true;
 }
 
+public class UpdateBannerForm
+{
+    public string? Title { get; set; }
+
+    public int? DisplayOrder { get; set; }
+
+    public bool? IsActive { get; set; }
+
+    public IFormFile? File { get; set; }
+}
+
+public class BannerQueryParameter
+{
+    public int PageIndex { get; set; } = 1;
+
+    public int PageSize { get; set; } = 10;
+
+    public string? Search { get; set; }
+
+    public bool? IsActive { get; set; }
+}
+
 public class BannerDto
 {
     public Guid Id { get; set; }

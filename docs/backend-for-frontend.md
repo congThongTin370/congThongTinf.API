@@ -9,7 +9,7 @@
 
   Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
-  Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
+  Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
   ## Hệ thống
 
@@ -40,11 +40,12 @@
   - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tăng lượt xem, tạo, sửa, xóa
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
-  - Admin: CRUD tài khoản (phân trang), dashboard thống kê, upload web banner
+  - Banner: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiển thị (chỉ Admin ghi)
+  - Admin: CRUD tài khoản (phân trang), dashboard thống kê
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
-  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), lấy/sửa/xóa banner, sửa/xóa tài liệu.
+  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu.
 
   ## Vai trò
 
@@ -52,7 +53,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Upload banner. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner hiển thị trang chủ. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -812,9 +813,24 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Banner
 
-  Banner trang chủ. File ảnh lưu R2 folder `banners`, metadata bảng `Banners`. Chưa có API lấy danh sách / chi tiết / xóa.
+  Banner trang chủ. File ảnh lưu R2 folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
 
-  `POST /api/admin/banners` — token role `Admin`. `Content-Type: multipart/form-data`. Controller gắn `[Authorize(Roles = "Admin")]` trên cả class.
+  Banner đang hiển thị trên trang chủ là bản ghi có `isActive = true`. `PUT /api/admin/banners/{id}/active` đặt đúng một banner thành banner đó và tắt `isActive` của các banner còn lại. Trang chủ gọi `GET /api/admin/banners?isActive=true`.
+
+  | Method | Path | Thành công |
+  | --- | --- | --- |
+  | GET | `/api/admin/banners` | Danh sách phân trang |
+  | GET | `/api/admin/banners/{id}` | Chi tiết |
+  | POST | `/api/admin/banners` | Tạo mới, `multipart/form-data` |
+  | PUT | `/api/admin/banners/{id}` | Sửa, `multipart/form-data` |
+  | PUT | `/api/admin/banners/{id}/active` | Đặt banner này là banner đang hiển thị |
+  | DELETE | `/api/admin/banners/{id}` | Xóa bản ghi và file trên R2 |
+
+  `GET /api/admin/banners` — public, không cần token. Query `pageIndex` (mặc định `1`, `0` lấy hết), `pageSize` (mặc định `10`), `search` (theo tiêu đề), `isActive` (lọc đang hiện / ẩn). Sắp theo `displayOrder` rồi `createdAt` giảm dần. `value.data` là `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Message `Lấy danh sách banner thành công.` Trang chủ dùng `isActive=true` để lấy banner đang display. Sau `PUT /{id}/active` danh sách này có đúng một phần tử.
+
+  `GET /api/admin/banners/{id}` — public, không cần token. Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: message `Lấy banner thành công.`
+
+  `POST /api/admin/banners` — cần token, role `Admin`. `Content-Type: multipart/form-data`.
 
   | Field | Bắt buộc | Ghi chú |
   | --- | --- | --- |
@@ -828,10 +844,26 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
   - Sai loại ảnh: HTTP `400`, `Banner phải là ảnh (jpg, jpeg, png, webp, gif).`
   - File lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+  - Thiếu token: HTTP `401` (framework, không có envelope).
   - Token không phải Admin: HTTP `403` (framework).
   - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
 
   Upload tạo bản ghi mới, không thay banner cũ.
+
+  `PUT /api/admin/banners/{id}` — cần token, role `Admin`. `multipart/form-data`. Field bỏ trống thì giữ giá trị cũ. Gửi `file` thì thay ảnh và xóa file cũ trên R2. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
+
+  | Field | Bắt buộc | Ghi chú |
+  | --- | --- | --- |
+  | `title` | Không | Gửi chuỗi rỗng: HTTP `400`, `Tiêu đề banner là bắt buộc.` |
+  | `displayOrder` | Không | |
+  | `isActive` | Không | |
+  | `file` | Không | Cùng quy tắc loại ảnh và 10 MB với lúc tạo |
+
+  Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `BannerDto`, message `Cập nhật banner thành công.`
+
+  `PUT /api/admin/banners/{id}/active` — cần token, role `Admin`. Không body. Đặt `isActive = true` cho `{id}` và `isActive = false` cho mọi banner khác. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: HTTP `200`, `value.data` là `BannerDto` của banner đang hiển thị (`isActive` = `true`), message `Đặt banner hiển thị trang chủ thành công.`
+
+  `DELETE /api/admin/banners/{id}` — cần token, role `Admin`. Xóa hàng trong DB rồi xóa file R2. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `true`, message `Xóa banner thành công.`
 
   ### BannerDto
 
@@ -844,7 +876,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `fileType` | string |
   | `fileSize` | number, bytes |
   | `displayOrder` | number |
-  | `isActive` | bool |
+  | `isActive` | bool, `true` khi đây là banner đang hiển thị trên trang chủ |
   | `uploadedByUserId` | Guid |
   | `createdAt` | datetime UTC |
 
@@ -892,17 +924,17 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST /api/admin/banners`, `POST /api/documents`.
-  - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download` là public.
-  - Tạo/sửa bài báo, upload ảnh bài, upload banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST /api/documents`.
+  - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}` là public.
+  - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
   - Đọc payload ở `response.value.data`.
   - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.
   - Map `user.roleName`: `0` Admin, `1` Journalist.
   - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
   - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
-  - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
+  - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), upload banner, upload tài liệu, và gọi `check-admin` khi role không phải `Admin`.
+  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner hiển thị (`PUT /api/admin/banners/{id}/active`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Trang chủ gọi `GET /api/admin/banners?isActive=true` không cần token; banner đang display là phần tử có `isActive = true`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.
