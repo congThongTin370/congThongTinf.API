@@ -279,7 +279,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Dung lượng R2
 
-  `GET /api/admin/storage` — chỉ role `Admin`. Controller `R2StorageAnalyticsController`. Không có query. Server gọi Cloudflare GraphQL Analytics (`r2StorageAdaptiveGroups`) cho bucket đã cấu hình, lấy mẫu mới nhất trong 7 ngày, rồi tính dung lượng còn lại theo `CloudflareR2Analytics:StorageQuotaBytes`.
+  `GET /api/admin/storage` — chỉ role `Admin`. Controller `R2StorageAnalyticsController`. Không có query. Server liệt kê object trong bucket R2 (`ListObjectsV2`) và cộng `Size` tại thời điểm gọi, rồi tính dung lượng còn lại theo `CloudflareR2:StorageQuotaBytes`. Bucket rỗng trả `usedBytes = 0`, `objectCount = 0`.
 
   Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
 
@@ -289,17 +289,17 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   | Field | Ý nghĩa |
   | --- | --- |
-  | `bucketName` | Bucket đã truy vấn. Bucket có jurisdiction thì dạng `{jurisdiction}_{bucket}` |
-  | `payloadBytes` | Dung lượng object |
-  | `metadataBytes` | Dung lượng metadata |
-  | `usedBytes` | `payloadBytes + metadataBytes` |
+  | `bucketName` | Bucket đã liệt kê |
+  | `payloadBytes` | Tổng `Size` của các object |
+  | `metadataBytes` | Luôn `0`. API liệt kê không trả dung lượng metadata |
+  | `usedBytes` | Bằng `payloadBytes` |
   | `objectCount` | Số object |
-  | `quotaBytes` | Hạn mức cấu hình, bytes |
+  | `quotaBytes` | Hạn mức cấu hình, bytes. Mặc định 10 GiB |
   | `remainingBytes` | `quotaBytes - usedBytes`, nhỏ nhất là `0` |
   | `usedPercent` | Phần trăm đã dùng, làm tròn 2 chữ số. Có thể lớn hơn 100 khi vượt hạn mức |
-  | `measuredAt` | Thời điểm mẫu Cloudflare, UTC. `null` nếu không đọc được datetime |
+  | `measuredAt` | Thời điểm liệt kê, UTC |
 
-  Lỗi nghiệp vụ vẫn bọc `ApiResult`: thiếu `AccountId` / `ApiToken` / tên bucket / hạn mức → HTTP `500`. Cloudflare từ chối hoặc lỗi mạng → HTTP `502`. Không có mẫu trong 7 ngày → HTTP `404`, message `Cloudflare chưa trả số liệu lưu trữ cho bucket này trong 7 ngày gần nhất.`
+  Lỗi nghiệp vụ vẫn bọc `ApiResult`: thiếu tên bucket hoặc hạn mức → HTTP `500`. Bucket không tồn tại → HTTP `404`, message `Không tìm thấy bucket R2.` R2 từ chối hoặc lỗi khi liệt kê → HTTP `502`, message `Không liệt kê được object trong bucket R2.`
 
   ## Envelope `ApiResult<T>`
 

@@ -94,7 +94,6 @@ public static class IocContainer
             .Build();
 
         services.Configure<CloudflareR2Options>(configuration.GetSection(CloudflareR2Options.SectionName));
-        services.Configure<CloudflareOptions>(configuration.GetSection(CloudflareOptions.SectionName));
 
         var r2 = configuration.GetSection(CloudflareR2Options.SectionName).Get<CloudflareR2Options>()
                  ?? throw new InvalidOperationException("CloudflareR2 configuration section is missing.");
@@ -157,11 +156,7 @@ public static class IocContainer
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAuthService, AuthService>();
         services.SetupCloudflareR2();
-        services.AddHttpClient<IR2StorageAnalyticsService, R2StorageAnalyticsService>(client =>
-        {
-            client.BaseAddress = new Uri("https://api.cloudflare.com/client/v4/");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        services.AddScoped<IR2StorageAnalyticsService, R2StorageAnalyticsService>();
         services.AddScoped<IBlobService, BlobService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IUserService, UserService>();

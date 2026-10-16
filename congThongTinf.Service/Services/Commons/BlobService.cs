@@ -28,6 +28,7 @@ namespace congThongTinf.Service.Services.Commons
         public string PublicUrl { get; set; } = string.Empty;
         public string AccessKey { get; set; } = string.Empty;
         public string SecretKey { get; set; } = string.Empty;
+        public long StorageQuotaBytes { get; set; } = 10L * 1024 * 1024 * 1024;
     }
 
     public class BlobService : congThongTinf.Service.Interfaces.Commons.IBlobService
