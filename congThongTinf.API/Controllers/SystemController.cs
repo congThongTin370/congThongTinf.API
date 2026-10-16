@@ -464,7 +464,7 @@ namespace congThongTinf.API.Controllers
 
         private async Task<Guid> EnsureJournalist(DateTime now)
         {
-            var author = await _context.Users.FirstOrDefaultAsync();
+            var author = await _context.Users.FirstOrDefaultAsync(u => u.Email == "nhabao1@gmail.com");
             if (author != null)
                 return author.Id;
 

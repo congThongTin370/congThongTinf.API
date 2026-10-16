@@ -8,6 +8,8 @@ public interface INewsService
 {
     Task<Pagination<NewsDto>> GetAllNewsAsync(NewsQueryDto? query);
 
+    Task<Pagination<NewsDto>> GetNewsByAuthorAsync(Guid authorId, NewsQueryDto? query);
+
     Task<NewsDto> GetNewsByIdAsync(Guid id);
 
     Task<int> IncrementViewCountAsync(Guid id);

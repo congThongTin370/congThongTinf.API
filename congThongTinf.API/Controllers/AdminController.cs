@@ -14,12 +14,33 @@ namespace congThongTinf.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly INewsService _newsService;
     private readonly IClaimsService _claimsService;
 
-    public AdminController(IUserService userService, IClaimsService claimsService)
+    public AdminController(IUserService userService, INewsService newsService, IClaimsService claimsService)
     {
         _userService = userService;
+        _newsService = newsService;
         _claimsService = claimsService;
+    }
+
+    [HttpGet("news")]
+    [ProducesResponseType(typeof(ApiResult<Pagination<NewsDto>>), 200)]
+    [ProducesResponseType(typeof(ApiResult<Pagination<NewsDto>>), 400)]
+    [ProducesResponseType(typeof(ApiResult<Pagination<NewsDto>>), 404)]
+    public async Task<IActionResult> GetNewsByAuthor([FromQuery] Guid authorId, [FromQuery] NewsQueryDto query)
+    {
+        try
+        {
+            var result = await _newsService.GetNewsByAuthorAsync(authorId, query);
+            return Ok(ApiResult<Pagination<NewsDto>>.Success(result, "200", "Lấy bài báo theo tác giả thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<Pagination<NewsDto>>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
     }
 
     [HttpGet("users")]

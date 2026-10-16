@@ -28,7 +28,17 @@ public class NewsService : INewsService
         _blobService = blobService;
     }
 
+    public Task<Pagination<NewsDto>> GetNewsByAuthorAsync(Guid authorId, NewsQueryDto? query)
+    {
+        return GetAllNewsAsync(query, authorId);
+    }
+
     public async Task<Pagination<NewsDto>> GetAllNewsAsync(NewsQueryDto? query)
+    {
+        return await GetAllNewsAsync(query, null);
+    }
+
+    private async Task<Pagination<NewsDto>> GetAllNewsAsync(NewsQueryDto? query, Guid? authorId)
     {
         query ??= new NewsQueryDto();
         if (query.PageSize <= 0)
@@ -52,13 +62,23 @@ public class NewsService : INewsService
         if (!Enum.IsDefined(query.SortBy))
             throw ErrorHelper.BadRequest("Cách sắp xếp không hợp lệ.");
 
+        if (authorId == Guid.Empty)
+            throw ErrorHelper.BadRequest("Tác giả không hợp lệ.");
+
+        if (authorId.HasValue
+            && !await _unitOfWork.Users.GetQueryable().AnyAsync(u => u.Id == authorId.Value))
+            throw ErrorHelper.NotFound("Không tìm thấy tác giả.");
+
         _logger.Info(
-            $"[GetAllNews] page={query.PageIndex}, size={query.PageSize}, from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}, search={query.Search}, sortBy={query.SortBy}");
+            $"[GetAllNews] page={query.PageIndex}, size={query.PageSize}, from={from:yyyy-MM-dd}, to={query.ToDate:yyyy-MM-dd}, categories={categoryIds?.Count ?? 0}, search={query.Search}, sortBy={query.SortBy}, author={authorId}");
 
         var articles = _unitOfWork.News.GetQueryable()
             .Include(n => n.Category)
             .Include(n => n.Author)
             .AsQueryable();
+
+        if (authorId.HasValue)
+            articles = articles.Where(n => n.AuthorId == authorId.Value);
 
         if (from.HasValue)
             articles = articles.Where(n => n.CreatedAt >= from.Value);

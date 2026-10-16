@@ -57,7 +57,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`, `GET /api/dashboard` và `GET /api/admin/storage`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`, `GET /api/dashboard`, `GET /api/admin/storage` và `GET /api/admin/news`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -100,7 +100,7 @@
   | `nhabao1@gmail.com` | `123321@` | Journalist |
   | `nhabao2@gmail.com` | `123321@` | Journalist |
 
-  `seed-news` chỉ tạo thêm `nhabao1@gmail.com` khi database chưa có user nào. Seed user trước thì bài mẫu gắn vào user đang active, gồm cả admin và phóng viên.
+  `seed-news` gán mọi bài mẫu cho `nhabao1@gmail.com`. Chưa có user này thì tạo mới, mật khẩu `123321@`.
 
   Các endpoint `/api/system/*` không có `[Authorize]`. Chỉ dùng cho môi trường local.
 
@@ -486,6 +486,18 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   `fromDate` lớn hơn `toDate` (so theo ngày): HTTP `400`, message `Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.`
 
   Mặc định sort `CreatedAt` giảm dần. Trả mọi status, kể cả Draft và Pending. Tin nhiều view: `GET /api/news?sortBy=1`.
+
+  `GET /api/news` không lọc theo tác giả. Admin lọc bằng `GET /api/admin/news`.
+
+  ### Danh sách theo tác giả (Admin)
+
+  `GET /api/admin/news` — cần token role `Admin`. Cùng query và cùng `value.data` với `GET /api/news`, thêm `authorId`.
+
+  | Param | Kiểu | Rule |
+  | --- | --- | --- |
+  | `authorId` | Guid, bắt buộc | Lọc `AuthorId`. `00000000-0000-0000-0000-000000000000`: HTTP `400`, `Tác giả không hợp lệ.` User không tồn tại: HTTP `404`, `Không tìm thấy tác giả.` |
+
+  Thiếu token: HTTP `401`. Không phải Admin: HTTP `403`. Thành công: HTTP `200`, message `Lấy bài báo theo tác giả thành công.` Ví dụ: `GET /api/admin/news?authorId={userId}&pageIndex=1&pageSize=10`.
 
   `value.data` là object phân trang: `items` (mảng `NewsDto` của trang), `totalCount` (tổng số bản ghi sau filter), `currentPage`, `totalPages`, `pageSize`, `hasPrevious`, `hasNext`.
 
@@ -1028,7 +1040,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
   - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
@@ -1038,8 +1050,8 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
   - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
   - Map `banner.position`: `0` Header (mọi trang), `1` HomeMid (dải giữa trang chủ). Không còn `displayOrder`.
-  - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
+  - `GET /api/news`, `GET /api/admin/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
+  - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), bài theo tác giả (`GET /api/admin/news`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.
