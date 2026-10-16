@@ -45,7 +45,7 @@
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
-  - Admin: CRUD tài khoản (phân trang), dashboard thống kê
+  - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng R2
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
@@ -57,7 +57,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin` và `GET /api/dashboard`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`, `GET /api/dashboard` và `GET /api/admin/storage`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -277,9 +277,33 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
 `total`, `active`.
 
+  ## Dung lượng R2
+
+  `GET /api/admin/storage` — chỉ role `Admin`. Controller `R2StorageAnalyticsController`. Không có query. Server gọi Cloudflare GraphQL Analytics (`r2StorageAdaptiveGroups`) cho bucket đã cấu hình, lấy mẫu mới nhất trong 7 ngày, rồi tính dung lượng còn lại theo `CloudflareR2Analytics:StorageQuotaBytes`.
+
+  Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
+
+  Thành công: HTTP `200`, message `Lấy dung lượng R2 thành công.`
+
+  `value.data`:
+
+  | Field | Ý nghĩa |
+  | --- | --- |
+  | `bucketName` | Bucket đã truy vấn. Bucket có jurisdiction thì dạng `{jurisdiction}_{bucket}` |
+  | `payloadBytes` | Dung lượng object |
+  | `metadataBytes` | Dung lượng metadata |
+  | `usedBytes` | `payloadBytes + metadataBytes` |
+  | `objectCount` | Số object |
+  | `quotaBytes` | Hạn mức cấu hình, bytes |
+  | `remainingBytes` | `quotaBytes - usedBytes`, nhỏ nhất là `0` |
+  | `usedPercent` | Phần trăm đã dùng, làm tròn 2 chữ số. Có thể lớn hơn 100 khi vượt hạn mức |
+  | `measuredAt` | Thời điểm mẫu Cloudflare, UTC. `null` nếu không đọc được datetime |
+
+  Lỗi nghiệp vụ vẫn bọc `ApiResult`: thiếu `AccountId` / `ApiToken` / tên bucket / hạn mức → HTTP `500`. Cloudflare từ chối hoặc lỗi mạng → HTTP `502`. Không có mẫu trong 7 ngày → HTTP `404`, message `Cloudflare chưa trả số liệu lưu trữ cho bucket này trong 7 ngày gần nhất.`
+
   ## Envelope `ApiResult<T>`
 
-  Mọi action auth, me, dashboard, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+  Mọi action auth, me, dashboard, storage R2, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
 
   Ngoại lệ: `GET /api/documents/{id}/download` trả **binary file**, không bọc `ApiResult`. Thành công thì body là bytes, header `Content-Disposition: attachment`.
 
@@ -1004,7 +1028,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
   - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
@@ -1017,5 +1041,5 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - `GET /api/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
   - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
+  - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

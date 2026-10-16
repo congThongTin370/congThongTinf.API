@@ -13,10 +13,7 @@ services:
       # PostgreSQL
       - ConnectionStrings__DefaultConnection=Host=congthongtinf.database;Port=5432;Database=CongThongTinfDB;Username=postgres;Password=postgres;Timeout=300;CommandTimeout=300
 
-      # jwt
-      # - jwt__secretkey=your_secret_key
-      # - jwt__issuer=congthongtinf_issuer
-      # - jwt__audience=congthongtinf_audience
+    
 
     ports:
       - "5000:8080"
