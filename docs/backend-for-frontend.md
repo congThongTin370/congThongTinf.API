@@ -921,6 +921,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | Method | Path | Thành công |
   | --- | --- | --- |
   | GET | `/api/admin/banners` | Danh sách phân trang |
+  | GET | `/api/admin/banners/files` | Ảnh trong folder R2 `banners/`, chỉ Admin |
   | GET | `/api/admin/banners/{id}` | Chi tiết |
   | POST | `/api/admin/banners` | Tạo mới, `multipart/form-data` |
   | PUT | `/api/admin/banners/{id}` | Sửa, `multipart/form-data` |
@@ -928,6 +929,15 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | DELETE | `/api/admin/banners/{id}` | Xóa bản ghi và file trên R2 |
 
   `GET /api/admin/banners` — public, không cần token.
+
+  `GET /api/admin/banners/files` — cần token, role `Admin`. Liệt kê file ảnh trong folder R2 `banners/` (cùng nơi `POST /api/admin/banners` upload), không đọc bảng `Banners`. Thiếu token: HTTP `401`. Không phải Admin: HTTP `403`. R2 lỗi khi liệt kê: HTTP `502`, `Không liệt kê được ảnh trong folder R2.` Thành công: HTTP `200`, message `Lấy danh sách ảnh banner thành công.` `value.data` là mảng, mới nhất trước:
+
+  | Field | Ý nghĩa |
+  | --- | --- |
+  | `key` | Object key, dạng `banners/{file}.webp` |
+  | `url` | URL public, cùng host với `https://pub-....r2.dev/banners/...` |
+  | `size` | Bytes |
+  | `lastModified` | UTC, hoặc `null` |
 
   | Param | Kiểu | Mặc định | Rule |
   | --- | --- | --- | --- |
@@ -1040,7 +1050,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `GET /api/admin/banners/files`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
   - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.

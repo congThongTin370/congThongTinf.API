@@ -144,6 +144,68 @@ namespace congThongTinf.Service.Services.Commons
             }
         }
 
+        public async Task<List<BlobObjectDto>> ListImagesAsync(string folder, CancellationToken cancellationToken = default)
+        {
+            var prefix = (folder ?? string.Empty).Trim().Trim('/');
+            if (string.IsNullOrEmpty(prefix))
+                throw CreateValidationException("Folder is required.");
+
+            if (string.IsNullOrWhiteSpace(_options.BucketName))
+                throw ErrorHelper.Internal("Chưa cấu hình tên bucket R2.");
+
+            prefix += "/";
+            _logger.LogInformation("Listing images in R2 prefix {Prefix}.", prefix);
+
+            var images = new List<BlobObjectDto>();
+            try
+            {
+                string? continuationToken = null;
+                do
+                {
+                    var response = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
+                    {
+                        BucketName = _options.BucketName,
+                        Prefix = prefix,
+                        ContinuationToken = continuationToken
+                    }, cancellationToken);
+
+                    foreach (var obj in response.S3Objects ?? [])
+                    {
+                        if (string.IsNullOrWhiteSpace(obj.Key) || obj.Key.EndsWith('/'))
+                            continue;
+                        if (!ImageFiles.HasImageExtension(obj.Key))
+                            continue;
+
+                        images.Add(new BlobObjectDto
+                        {
+                            Key = obj.Key,
+                            Url = GetPublicUrl(obj.Key),
+                            Size = obj.Size ?? 0,
+                            LastModified = obj.LastModified?.ToUniversalTime()
+                        });
+                    }
+
+                    continuationToken = response.IsTruncated == true ? response.NextContinuationToken : null;
+                }
+                while (continuationToken != null);
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning(ex, "R2 bucket {Bucket} was not found.", _options.BucketName);
+                throw ErrorHelper.NotFound("Không tìm thấy bucket R2.");
+            }
+            catch (AmazonS3Exception ex)
+            {
+                _logger.LogError(ex, "R2 list failed for prefix {Prefix}.", prefix);
+                throw ErrorHelper.WithStatus(502, "Không liệt kê được ảnh trong folder R2.");
+            }
+
+            return images
+                .OrderByDescending(image => image.LastModified)
+                .ThenBy(image => image.Key, StringComparer.Ordinal)
+                .ToList();
+        }
+
         public string GetPublicUrl(string key)
         {
             return $"{_options.PublicUrl.TrimEnd('/')}/{key}";

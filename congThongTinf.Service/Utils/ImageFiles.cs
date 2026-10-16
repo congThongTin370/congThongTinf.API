@@ -19,4 +19,10 @@ public static class ImageFiles
         var extension = Path.GetExtension(file.FileName);
         return !string.IsNullOrWhiteSpace(extension) && Extensions.Contains(extension);
     }
+
+    public static bool HasImageExtension(string? key)
+    {
+        var extension = Path.GetExtension(key);
+        return !string.IsNullOrWhiteSpace(extension) && Extensions.Contains(extension);
+    }
 }

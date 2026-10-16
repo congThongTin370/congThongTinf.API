@@ -7,6 +7,8 @@ public interface IBannerService
 {
     Task<Pagination<BannerDto>> GetAllBannersAsync(BannerQueryParameter param);
 
+    Task<List<BlobObjectDto>> ListBannerImagesAsync(CancellationToken cancellationToken = default);
+
     Task<BannerDto> GetBannerByIdAsync(Guid id);
 
     Task<BannerDto> UploadBannerAsync(Guid currentUserId, UploadBannerForm form, CancellationToken cancellationToken = default);

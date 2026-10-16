@@ -22,6 +22,11 @@ public class BannerService : IBannerService
         _blobService = blobService;
     }
 
+    public Task<List<BlobObjectDto>> ListBannerImagesAsync(CancellationToken cancellationToken = default)
+    {
+        return _blobService.ListImagesAsync("banners", cancellationToken);
+    }
+
     public async Task<Pagination<BannerDto>> GetAllBannersAsync(BannerQueryParameter param)
     {
         param ??= new BannerQueryParameter();

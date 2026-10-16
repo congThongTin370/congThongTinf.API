@@ -31,5 +31,10 @@ namespace congThongTinf.Service.Interfaces.Commons
         /// Maps a public object URL back to the storage key.
         /// </summary>
         string GetKeyFromPublicUrl(string url);
+
+        /// <summary>
+        /// Lists image objects under a folder prefix in the configured bucket.
+        /// </summary>
+        Task<List<BlobObjectDto>> ListImagesAsync(string folder, CancellationToken cancellationToken = default);
     }
 }

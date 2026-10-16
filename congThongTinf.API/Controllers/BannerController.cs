@@ -38,6 +38,25 @@ public class BannerController : ControllerBase
         }
     }
 
+    [HttpGet("files")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(ApiResult<List<BlobObjectDto>>), 200)]
+    [ProducesResponseType(typeof(ApiResult<List<BlobObjectDto>>), 502)]
+    public async Task<IActionResult> ListFiles()
+    {
+        try
+        {
+            var result = await _bannerService.ListBannerImagesAsync(HttpContext.RequestAborted);
+            return Ok(ApiResult<List<BlobObjectDto>>.Success(result, "200", "Lấy danh sách ảnh banner thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<List<BlobObjectDto>>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ApiResult<BannerDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<BannerDto>), 404)]

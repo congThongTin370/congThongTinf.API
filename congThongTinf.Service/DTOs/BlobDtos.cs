@@ -15,6 +15,17 @@ public class UploadFileResultDto
     public string ContentType { get; set; } = string.Empty;
 }
 
+public class BlobObjectDto
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Url { get; set; } = string.Empty;
+
+    public long Size { get; set; }
+
+    public DateTime? LastModified { get; set; }
+}
+
 public class BlobDownloadResult : IAsyncDisposable
 {
     public required Stream Stream { get; init; }
