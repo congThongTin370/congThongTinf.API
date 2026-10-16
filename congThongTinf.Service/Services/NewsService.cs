@@ -11,11 +11,6 @@ namespace congThongTinf.Service.Services;
 
 public class NewsService : INewsService
 {
-    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".webp", ".gif"
-    };
-
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAdminService _adminService;
@@ -385,9 +380,8 @@ public class NewsService : INewsService
         if (file == null || file.Length == 0)
             throw ErrorHelper.BadRequest("File là bắt buộc.");
 
-        var extension = Path.GetExtension(file.FileName);
-        if (string.IsNullOrWhiteSpace(extension) || !ImageExtensions.Contains(extension))
-            throw ErrorHelper.BadRequest("Ảnh phải là jpg, jpeg, png, webp hoặc gif.");
+        if (!ImageFiles.IsImage(file))
+            throw ErrorHelper.BadRequest("File phải là ảnh.");
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using congThongTinf.Domain;
+﻿ using congThongTinf.Domain;
 using congThongTinf.Domain.Entities;
 using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Mvc;
@@ -362,11 +362,11 @@ namespace congThongTinf.API.Controllers
                  new()
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
-                    Summary = "Dự thảo kế hoạch kiểm tra bảo dưỡng máy bay và trang bị mặt đất trong tháng tới.",
-                    Content = BuildArticleContent(Random.Shared),
+                    Title = "Quân chủng Phòng không - Không quân kiểm tra công tác tiếp nhận và chuẩn bị huấn luyện chiến sĩ mới tại Sư đoàn 367 và Sư đoàn 370",
+                    Summary="Trong 2 ngày (10 và 11-3), Đoàn kiểm tra của Quân chủng PK-KQ do Thiếu tướng Phạm Văn Tính - Phó Tư lệnh Quân chủng làm Trưởng đoàn đã tiến hành kiểm tra công tác tiếp nhận và chuẩn bị huấn luyện chiến sĩ mới tại Sư đoàn 367 và Sư đoàn 370. Tham gia đoàn kiểm tra có Đại tá Nguyễn Tuấn Hiệp - Phó Chủ nhiệm Hậu cần - Kỹ thuật Quân chủng PK-KQ; đại diện một số phòng, ban chức năng của Quân chủng PK-KQ.",
+                    Content = "Thiếu tướng Phạm Văn Tính -  Phó Tư lệnh Quân chủng PK-KQ trao đổi, động viên chiến sĩ mới Tiểu đoàn Huấn luyện chiến sĩ mới, Sư đoàn 370.\r\n\r\nTại các Sư đoàn, Đoàn kiểm tra đã nghe chỉ huy đơn vị báo cáo kết quả công tác tiếp nhận và chuẩn bị huấn luyện chiến sĩ mới của đơn vị; trực tiếp kiểm tra công tác tuyển chọn, tiếp nhận, tổ chức biên chế quân số của các đơn vị; công tác chuẩn bị mọi mặt cho huấn luyện chiến sĩ mới, bao gồm: Công tác bảo đảm vật chất huấn luyện, xây dựng chính quy; công tác bảo đảm thao trường bãi tập, trường bắn; tổ chức biên chế và tập huấn khung huấn luyện chiến sĩ mới; hoạt động công tác Đảng, công tác chính trị; công tác tác bảo đảm hậu cần, kỹ thuật.\r\n\r\nTrong thời gian qua, Sư đoàn 367 và Sư đoàn 370 đã tích cực, chủ động làm tốt công tác chuẩn bị mọi mặt cho tiếp nhận và huấn luyện chiến sĩ mới; tổ chức tiếp nhận chiến sĩ mới tại các tỉnh trên địa bàn Quân khu 7 và Quân khu 9 bảo đảm chặt chẽ an toàn. Sau tiếp nhận, các đơn vị đã tiến hành cấp phát bổ sung quân trang, doanh cụ, sắp xếp nơi ăn ở, sinh hoạt cho chiến sĩ mới; tổ chức khám phúc tra sức khỏe; tổ chức duy trì nghiêm nền nếp chính quy, quản lý chặt chẽ quân số, tăng cường nắm,quản lý tư tưởng bộ đội.\r\n\r\nCác đơn vị đã chủ động rà soát, kiện toàn đội ngũ cán bộ khung huấn luyện; tổ chức tập huấn, bồi dưỡng thống nhất nội dung, phương pháp huấn luyện theo chương trình quy định; tích cực củng cố doanh trại, thao trường, bãi tập; soạn giáo án, bổ sung hệ thống mô hình, học cụ, vật chất huấn luyện; duy trì có chất lượng, hiệu quả hoạt động công tác Đảng, công tác chính trị; bảo đảm các tiêu chuẩn đời sống tinh thần; bảo đảm tốt công tác hậu cần, kỹ thuật cho huấn luyện chiến sĩ mới.\r\n\r\n![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/0ba46cd08d334e0b856276c6ecd58385.png)Kết luận kiểm tra, Thiếu tướng Phạm Văn Tính biểu dương tinh thần tích cực, chủ động của các đơn vị trong tiếp nhận và chuẩn bị huấn luyện chiến sĩ mới năm 2026; đồng thời yêu cầu các đơn vị tiếp tục tổ chức quán triệt và triển khai làm tốt công tác chuẩn bị cho nhiệm vụ huấn luyện chiến sĩ mới năm 2026; thường xuyên nắm chắc tình hình tư tưởng chiến sĩ mới, không để bị động, bất ngờ về tư tưởng; tiếp tục hoàn thiện hệ thống giáo án theo hướng dẫn, thục luyện thuần thục động tác, nắm chắc nội dung, phương pháp tổ chức hướng dẫn luyện tập sát với đối tượng; nghiên cứu cải tiến mô hình, học cụ, trang thiết bị phục vụ cho nhiệm vụ huấn luyện; tiếp tục củng cố hệ thống doanh trại, nhà ăn, nhà bếp, duy trì bảo đảm  tốt hậu cần, kỹ thuật cho nhiệm vụ huấn luyện chiến sĩ mới; chú trọng bảo đảm quân y, chống say nắng, say nóng cho bộ đội trong quá trình tổ chức huấn luyện.",
                     CategoryId = categories["Tin tức đơn vị"],
-                    CoverImageUrl = "https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/c71959d435584f0e9801b09f37d8bfaf.jpg",
+                    CoverImageUrl = "https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/b899f4b525194bc2ab4d8cd292647559.jpg",
                     AuthorId = authorId,
                     Status = NewsStatus.Draft,
                     ViewCount = 0,
@@ -376,11 +376,11 @@ namespace congThongTinf.API.Controllers
                  new()
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Kế hoạch kiểm tra công tác kỹ thuật hàng không",
-                    Summary = "Dự thảo kế hoạch kiểm tra bảo dưỡng máy bay và trang bị mặt đất trong tháng tới.",
-                    Content = BuildArticleContent(Random.Shared),
+                    Title = "Sư đoàn 370 tổ chức các hoạt động tri ân nhân dịp kỷ niệm 79 năm Ngày Thương binh - Liệt sĩ (27-7-1947 / 27-7-2026)",
+                    Summary = "Nhân kỷ niệm 79 năm Ngày Thương binh - Liệt sĩ (27-7-1947 / 27-7-2026), Sư đoàn 370 đã tổ chức nhiều hoạt động thiết thực, ý nghĩa nhằm tri ân các Anh hùng liệt sĩ, thương binh, bệnh binh, gia đình chính sách và người có công với cách mạng.",
+                    Content = "> Đoàn công tác của Sư đoàn 370 dâng hương tưởng niệm các Anh hùng liệt sĩ tại Công viên Lê Thị Riêng, TP Hồ Chí Minh.\r\n\r\n![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/8e8c20031fe64a7abcaa7ca099167ad0.png)Lãnh đạo, chỉ huy Sư đoàn 370 gặp mặt, tặng quà các đồng chí thương binh, thân nhân gia đình liệt sĩ đang công tác tại Sư đoàn.Các cơ quan, đơn vị trong Sư đoàn đã đẩy mạnh tuyên truyền chủ trương, đường lối của Đảng, chính sách, pháp luật của Nhà nước đối với người có công; giáo dục truyền thống cách mạng, nâng cao nhận thức, trách nhiệm của cán bộ, chiến sĩ trong thực hiện phong trào “Đền ơn đáp nghĩa”. Đồng thời, phối hợp chặt chẽ với cấp ủy, chính quyền địa phương tổ chức các hoạt động thăm hỏi, tặng quà thương binh, gia đình liệt sĩ, gia đình chính sách; tham gia tu sửa, vệ sinh nghĩa trang liệt sĩ, các công trình tưởng niệm và chăm sóc phần mộ liệt sĩ trên địa bàn đóng quân.\r\nNhân dịp này, các đoàn công tác của Sư đoàn đã tổ chức dâng hương, dâng hoa tưởng niệm, thắp nến tri ân tại Công viên Lê Thị Riêng, Nghĩa trang Liệt sĩ TP Hồ Chí Minh, Nghĩa trang Liệt sĩ Củ Chi, Nghĩa trang Liệt sĩ Long Thành (Đồng Nai), Nghĩa trang Liệt sĩ tỉnh Bình Thuận và nhiều nghĩa trang liệt sĩ trên địa bàn các đơn vị đóng quân. Cùng với đó, Sư đoàn tổ chức gặp mặt, tặng quà các đồng chí là thương binh, thân nhân gia đình liệt sĩ đang công tác tại đơn vị; thăm hỏi, tặng quà cán bộ, chiến sĩ đang điều trị tại Bệnh viện Quân y 175 và bệnh xá đơn vị; đồng thời thành lập các đoàn công tác đến thăm hỏi, tặng quà các gia đình chính sách trên địa bàn đóng quân.![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/54175f4560364b7a85cf6a572a2ae367.png)Cán bộ, chiến sĩ Trung đoàn 935, Sư đoàn 370 dâng hương tưởng niệm các Anh hùng liệt sĩ tại Nhà bia ghi danh Liệt sĩ ở đơn vị.![image](https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/5970b0fe6bea46ff935a1be8566bbc86.png)Cán bộ, chiến sĩ Trung đoàn 917, Sư đoàn 370 thắp nến tri ân các Anh hùng Liệt sĩ tại Nghĩa trang Liệt sĩ Long Tuyền, phường Long Tuyền, TP Cần Thơ.Thông qua chuỗi hoạt động thiết thực, Sư đoàn 370 tiếp tục phát huy đạo lý “Uống nước nhớ nguồn”, “Đền ơn đáp nghĩa” của dân tộc; bồi đắp truyền thống cách mạng, giáo dục cán bộ, chiến sĩ lòng biết ơn sâu sắc đối với các thế hệ cha anh đã anh dũng hy sinh vì sự nghiệp giải phóng dân tộc, xây dựng và bảo vệ Tổ quốc. Đồng thời, góp phần củng cố mối quan hệ đoàn kết quân - dân, xây dựng đơn vị vững mạnh toàn diện, hoàn thành thắng lợi mọi nhiệm vụ được giao.",
                     CategoryId = categories["Tin tức đơn vị"],
-                    CoverImageUrl = "https://file3.qdnd.vn/data/images/0/2022/01/15/thuyan/e%20917.jpg?dpi=150&quality=100&w=870",
+                    CoverImageUrl = "https://pub-f9c31e10d1244c9cb46f01196c447ad2.r2.dev/news/d11d9e26-a98f-42b3-8b79-655776c242ad/d1fb09b498f4401e99740c0d7ee5deb0.jpg",
                     AuthorId = authorId,
                     Status = NewsStatus.Draft,
                     ViewCount = 0,
@@ -419,98 +419,10 @@ namespace congThongTinf.API.Controllers
                 }
             };
 
-            articles.AddRange(BuildRandomArticles(now, categories.Values.ToList(), await GetSeededAuthorIdsAsync(), 15));
-
             await _context.News.AddRangeAsync(articles);
             await _context.SaveChangesAsync();
             _logger.Success($"Đã seed {articles.Count} bài viết.");
             return articles.Count;
-        }
-
-        private async Task<List<Guid>> GetSeededAuthorIdsAsync()
-        {
-            var ids = await _context.Users
-                .Where(u => u.IsActive)
-                .Select(u => u.Id)
-                .ToListAsync();
-
-            if (ids.Count == 0)
-                ids.Add(await EnsureJournalist(DateTime.UtcNow));
-
-            return ids;
-        }
-
-        private static List<News> BuildRandomArticles(DateTime now, List<Guid> categoryIds, List<Guid> authorIds, int count)
-        {
-            var random = Random.Shared;
-            var titles = new[]
-            {
-                "Đơn vị ra quân huấn luyện đầu tháng",
-                "Tổ bay hoàn thành nhiệm vụ bay đêm",
-                "Hội thi kỹ thuật bảo dưỡng máy bay",
-                "Cán bộ tiêu biểu được biểu dương",
-                "Bảo đảm an toàn bay trong mùa mưa",
-                "Lớp học nâng cao kỹ năng chỉ huy",
-                "Đại hội Chi bộ nhiệm kỳ mới",
-                "Diễn tập sẵn sàng chiến đấu cấp đơn vị",
-                "Hoạt động thể thao giao hữu giữa các đơn vị",
-                "Tăng cường công tác bảo đảm hậu cần",
-                "Kiểm tra chất lượng trang bị kỹ thuật",
-                "Văn nghệ quần chúng mừng ngày truyền thống",
-                "Đoàn viên thanh niên tham gia hiến máu",
-                "Tập huấn phòng cháy chữa cháy tại doanh trại",
-                "Gặp mặt cựu chiến binh nhân dịp kỷ niệm"
-            };
-            var summaries = new[]
-            {
-                "Thông tin cập nhật về hoạt động của đơn vị trong thời gian gần đây.",
-                "Tóm tắt kết quả và các nội dung đã triển khai theo kế hoạch.",
-                "Nội dung chính được tổng hợp từ báo cáo của các đơn vị trực thuộc."
-            };
-            var statuses = new[] { NewsStatus.Draft, NewsStatus.Pending, NewsStatus.Published };
-
-            var articles = new List<News>(count);
-            for (var i = 0; i < count; i++)
-            {
-                var status = statuses[random.Next(statuses.Length)];
-                var createdAt = now.AddHours(-random.Next(1, 24 * 14));
-                articles.Add(new News
-                {
-                    Id = Guid.NewGuid(),
-                    Title = titles[i % titles.Length],
-                    Summary = summaries[random.Next(summaries.Length)],
-                    Content = BuildArticleContent(random),
-                    CategoryId = categoryIds[random.Next(categoryIds.Count)],
-                    AuthorId = authorIds[random.Next(authorIds.Count)],
-                    Status = status,
-                    PublishedAt = status == NewsStatus.Published ? createdAt.AddHours(2) : null,
-                    ViewCount = status == NewsStatus.Published ? random.Next(0, 200) : 0,
-                    CreatedAt = createdAt,
-                    UpdatedAt = createdAt.AddHours(1)
-                });
-            }
-
-            return articles;
-        }
-
-        private static string BuildArticleContent(Random random)
-        {
-            var paragraphs = new[]
-            {
-                "Trong bối cảnh nhiệm vụ huấn luyện và sẵn sàng chiến đấu ngày càng được đặt ra cao hơn, các đơn vị thuộc Sư đoàn Không quân 370 tiếp tục đẩy mạnh công tác chuẩn bị, bảo đảm đầy đủ về con người, trang bị và điều kiện thực hiện nhiệm vụ. Nội dung được triển khai đồng bộ từ cấp chi bộ đến từng tổ bay, từng bộ phận kỹ thuật.",
-                "Theo báo cáo của các đơn vị, kế hoạch đã được thực hiện đúng tiến độ với nhiều điểm mới. Cán bộ chỉ huy chú trọng rà soát lại quy trình, phân công trách nhiệm rõ ràng cho từng cá nhân và tăng cường kiểm tra thường xuyên trong suốt quá trình triển khai.",
-                "Công tác bảo đảm kỹ thuật được coi là khâu then chốt. Các tổ kỹ thuật tiến hành kiểm tra, bảo dưỡng định kỳ theo đúng quy định, đối chiếu sổ sách và ghi chép đầy đủ tình trạng trang bị. Mọi phát hiện bất thường đều được báo cáo kịp thời và xử lý dứt điểm trước khi đưa vào sử dụng.",
-                "Song song với huấn luyện chuyên môn, các đơn vị đặc biệt quan tâm đến công tác giáo dục chính trị, tư tưởng cho cán bộ, chiến sĩ. Các buổi sinh hoạt được tổ chức nghiêm túc, bám sát tình hình thực tế, giúp mỗi người nâng cao nhận thức về trách nhiệm và kỷ luật trong quân ngũ.",
-                "Về công tác hậu cần, đơn vị đã chủ động rà soát nhu cầu vật tư, nhiên liệu và các điều kiện sinh hoạt phục vụ bộ đội. Việc bảo đảm đầy đủ, kịp thời góp phần giữ vững nhịp độ huấn luyện, đồng thời bảo đảm sức khỏe và đời sống tinh thần cho cán bộ, chiến sĩ trong suốt thời gian làm nhiệm vụ.",
-                "Các đại biểu đánh giá cao tinh thần trách nhiệm và ý thức tự giác của lực lượng trực tiếp thực hiện. Nhiều tập thể, cá nhân có thành tích xuất sắc đã được biểu dương, qua đó tạo động lực thi đua lập thành tích chào mừng các dịp kỷ niệm quan trọng của đơn vị trong thời gian tới.",
-                "Thời gian tới, đơn vị tiếp tục duy trì các nội dung đã triển khai, đồng thời khắc phục những hạn chế được nêu ra trong quá trình kiểm điểm. Trọng tâm là nâng cao chất lượng huấn luyện thực chất, sát với yêu cầu chiến đấu, bảo đảm an toàn tuyệt đối trong mọi chuyến bay và hoạt động kỹ thuật.",
-                "Qua đợt triển khai này, có thể thấy sự phối hợp giữa các cấp, các lực lượng ngày càng chặt chẽ và hiệu quả. Đây là cơ sở quan trọng để Sư đoàn tiếp tục hoàn thành tốt nhiệm vụ được giao, xứng đáng với truyền thống vẻ vang của đơn vị qua các thời kỳ cách mạng.",
-                "Tại phần kết luận, lãnh đạo Sư đoàn yêu cầu các đơn vị tiếp tục quán triệt nghiêm túc các chỉ thị, mệnh lệnh cấp trên; chủ động đề xuất giải pháp đổi mới phương pháp huấn luyện; đồng thời thường xuyên tổng kết, rút kinh nghiệm để công tác ngày càng đi vào chiều sâu và đạt hiệu quả cao hơn."
-            };
-
-            // Lấy 8 đoạn để bài đạt khoảng 500-600 từ.
-            var picked = paragraphs.OrderBy(_ => random.Next()).Take(8);
-            return string.Join("\n\n", picked);
         }
 
         private async Task<Dictionary<string, Guid>> EnsureCategories(DateTime now)

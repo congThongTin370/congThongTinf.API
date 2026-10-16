@@ -11,6 +11,8 @@
 
   Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
+  Mọi file ảnh (ảnh bìa, ảnh trong bài, banner, và `POST /api/blobs/upload`) được kiểm tra định dạng thật và kích thước (tối đa 10 MB, cạnh tối đa 8192 px) rồi chuyển sang WebP quality 82 trước khi lưu R2. Nhận `Content-Type: image/*` hoặc đuôi `.jpg`, `.jpeg`, `.jfif`, `.png`, `.gif`, `.webp`, `.bmp`, `.tif`, `.tiff`, `.tga`, `.pbm`, `.pgm`, `.ppm`, `.qoi`. URL trả về kết thúc bằng `.webp`, `contentType` là `image/webp`. Tài liệu nội bộ không bị chuyển đổi.
+
   ## Hệ thống
 
   Cổng thông tin nội bộ Sư đoàn Không quân 370. Backend là ASP.NET Core 10, PostgreSQL, kiến trúc phân lớp:
@@ -495,13 +497,13 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `content` | string | Có | Không được chỉ có khoảng trắng |
   | `categoryId` | Guid | Có | Phải là Guid của category đang active |
   | `summary` | string | Không | Mặc định chuỗi rỗng |
-  | `coverImage` | file | Không | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB. Không gửi thì `coverImageUrl` là `null` |
+  | `coverImage` | file | Không | File ảnh, tối đa 10 MB. Mọi ảnh được lưu thành `.webp`. Không gửi thì `coverImageUrl` là `null` |
 
   Thành công: HTTP `200`, `value.data` là `NewsDto` vừa tạo.
 
   - Thiếu `title`, `content` hoặc `categoryId`: HTTP `400`, `Tiêu đề, nội dung và danh mục là bắt buộc.`
   - `categoryId` không tồn tại: HTTP `404`, `Danh mục với ID {id} không tồn tại.`
-  - `coverImage` rỗng hoặc sai loại: HTTP `400`, `File là bắt buộc.` hoặc `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+  - `coverImage` rỗng hoặc không phải ảnh: HTTP `400`, `File là bắt buộc.` hoặc `File phải là ảnh.`
   - `coverImage` lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
   - Không phải Journalist (kể cả Admin): HTTP `403`, `Chỉ phóng viên mới được thực hiện thao tác này.`
   - User trong token không còn trong DB hoặc bị khóa: HTTP `401`, `Không xác định được người dùng hiện tại.`
@@ -514,11 +516,14 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
     <input name="summary" value="Tóm tắt bài báo">
     <textarea name="content">Nội dung bài báo</textarea>
     <input name="categoryId" value="{categoryGuid}">
-    <input type="file" name="coverImage" accept=".jpg,.jpeg,.png,.webp,.gif">
+    <input type="file" name="coverImage" accept="image/*">
   </form>
   ```
 
-  Ví dụ `coverImageUrl` trong `NewsDto` trả về: `https://<PublicUrl>/news/{userId}/{guid}.jpg`.
+  Ví dụ `coverImageUrl` trong `NewsDto`: `https://<PublicUrl>/news/{userId}/{guid}.webp`.
+
+  - File khai là ảnh nhưng không đọc được: HTTP `400`, `Image file is invalid.`
+  - Cạnh ảnh lớn hơn 8192 px: HTTP `400`, `Image dimensions exceed 8192 pixels.`
 
   ### Upload ảnh trong bài
 
@@ -526,18 +531,18 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   | Field | Bắt buộc | Ghi chú |
   | --- | --- | --- |
-  | `file` | Có | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB |
+  | `file` | Có | File ảnh, tối đa 10 MB. Mọi ảnh được lưu thành `.webp` |
 
   Thành công: HTTP `200`, `value.data` là `NewsImageDto`, message `Tải ảnh thành công.`
 
   ```json
   {
-    "url": "https://<PublicUrl>/news/{userId}/{guid}.jpg"
+    "url": "https://<PublicUrl>/news/{userId}/{guid}.webp"
   }
   ```
 
   - Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
-  - Sai loại ảnh: HTTP `400`, `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+  - Không phải ảnh: HTTP `400`, `File phải là ảnh.`
   - Token không phải Journalist: HTTP `403` (framework).
 
   Endpoint này chỉ trả URL. Không tạo bản ghi bài báo. Dùng khi cần chèn ảnh vào nội dung bài.
@@ -554,7 +559,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `content` | string | Có | Không được chỉ có khoảng trắng |
   | `categoryId` | Guid | Có | Phải là Guid của category đang tồn tại |
   | `summary` | string | Không | Mặc định chuỗi rỗng |
-  | `coverImage` | file | Không | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, tối đa 10 MB. Có file thì upload lên R2 và thay `coverImageUrl`. Không gửi thì giữ ảnh bìa cũ. Client **không** gửi `coverImageUrl`. |
+  | `coverImage` | file | Không | File ảnh, tối đa 10 MB. Có file thì chuyển WebP, upload lên R2 và thay `coverImageUrl`. Không gửi thì giữ ảnh bìa cũ. Client **không** gửi `coverImageUrl`. |
 
   Thành công: HTTP `200`, `value.data` là `NewsDto` sau khi sửa.
 
@@ -563,7 +568,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - `categoryId` không tồn tại: HTTP `404`, `Danh mục với ID {id} không tồn tại.`
   - Không phải tác giả: HTTP `403`, `Bạn chỉ được thao tác trên bài viết của chính mình.`
   - Không phải Journalist: HTTP `403`, `Chỉ phóng viên mới được thực hiện thao tác này.`
-  - `coverImage` rỗng hoặc sai loại: HTTP `400`, `File là bắt buộc.` hoặc `Ảnh phải là jpg, jpeg, png, webp hoặc gif.`
+  - `coverImage` rỗng hoặc không phải ảnh: HTTP `400`, `File là bắt buộc.` hoặc `File phải là ảnh.`
   - `coverImage` lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
 
   ### Xóa bài
@@ -904,7 +909,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   | Field | Bắt buộc | Ghi chú |
   | --- | --- | --- |
-  | `file` | Có | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif` |
+  | `file` | Có | File ảnh. Mọi ảnh được lưu thành `.webp`; `imageUrl` là URL WebP |
   | `title` | Không | Trống thì lấy tên file bỏ phần mở rộng |
   | `linkUrl` | Không | URL khi click banner. Trống/`null` thì `linkUrl` là `null`. Dài hơn 1000 ký tự: HTTP `400`, `Link banner không được vượt quá 1000 ký tự.` |
   | `position` | Không | Số `0` hoặc `1`. Mặc định `0` (Header). Giá trị khác: HTTP `400`, `Vị trí banner không hợp lệ.` |
@@ -913,7 +918,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   Thành công: HTTP `200`, `value.data` là `BannerDto`, message `Tải banner thành công.`
 
   - Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
-  - Sai loại ảnh: HTTP `400`, `Banner phải là ảnh (jpg, jpeg, png, webp, gif).`
+  - Không phải ảnh: HTTP `400`, `Banner phải là ảnh.`
   - File lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
   - Thiếu token: HTTP `401` (framework, không có envelope).
   - Token không phải Admin: HTTP `403` (framework).
@@ -974,7 +979,8 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `contentType` | string |
 
   Thiếu file: HTTP `400`, `File is required.`  
-  Quá 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+  Quá 10 MB: HTTP `400`, `File exceeds 10 MB limit.`  
+  Ảnh không đọc được hoặc cạnh quá 8192 px: HTTP `400`, `Image file is invalid.` hoặc `Image dimensions exceed 8192 pixels.` File ảnh thành công có `url` kết thúc `.webp`, `contentType` = `image/webp`, `size` là dung lượng WebP.
 
   `DELETE /api/blobs?key={key}` — xóa object theo key. Thành công: `value.data` = `true`. Key rỗng: HTTP `400`, `Key is required.`
 

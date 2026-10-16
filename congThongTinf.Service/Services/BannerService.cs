@@ -11,11 +11,6 @@ namespace congThongTinf.Service.Services;
 
 public class BannerService : IBannerService
 {
-    private static readonly HashSet<string> BannerExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".webp", ".gif"
-    };
-
     private readonly IBlobService _blobService;
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
@@ -294,9 +289,8 @@ public class BannerService : IBannerService
         if (file == null || file.Length == 0)
             throw ErrorHelper.BadRequest("File là bắt buộc.");
 
-        var extension = Path.GetExtension(file.FileName);
-        if (string.IsNullOrWhiteSpace(extension) || !BannerExtensions.Contains(extension))
-            throw ErrorHelper.BadRequest("Banner phải là ảnh (jpg, jpeg, png, webp, gif).");
+        if (!ImageFiles.IsImage(file))
+            throw ErrorHelper.BadRequest("Banner phải là ảnh.");
 
         return file;
     }
