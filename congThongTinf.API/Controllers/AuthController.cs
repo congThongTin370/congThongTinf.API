@@ -1,9 +1,11 @@
-﻿using congThongTinf.Infrastructure.Interfaces;
+﻿using congThongTinf.API.Middleware;
+using congThongTinf.Infrastructure.Interfaces;
 using congThongTinf.Service.DTOs;
 using congThongTinf.Service.Interfaces;
 using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace congThongTinf.API.Controllers;
 
@@ -43,8 +45,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingOptions.LoginPolicy)]
     [ProducesResponseType(typeof(ApiResult<LoginResponseDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<LoginResponseDto>), 401)]
+    [ProducesResponseType(typeof(ApiResult), 429)]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
     {
         try

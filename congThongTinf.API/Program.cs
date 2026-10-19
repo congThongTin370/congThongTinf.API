@@ -1,4 +1,5 @@
 using congThongTinf.API.Architecture;
+using congThongTinf.API.Middleware;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,10 +36,13 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.SetupIocContainer();
+builder.Services.AddApiRateLimiting(builder.Configuration);
 
 var app = builder.Build();
 
 app.UseCors("AllowFrontend");
+app.UseRouting();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
