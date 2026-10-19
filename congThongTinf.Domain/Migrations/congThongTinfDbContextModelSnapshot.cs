@@ -294,6 +294,54 @@ namespace congThongTinf.Domain.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("congThongTinf.Domain.Entities.SharedFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ShareToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShareToken")
+                        .IsUnique()
+                        .HasFilter("\"ShareToken\" IS NOT NULL");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("SharedFiles");
+                });
+
             modelBuilder.Entity("congThongTinf.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -353,6 +401,17 @@ namespace congThongTinf.Domain.Migrations
                 });
 
             modelBuilder.Entity("congThongTinf.Domain.Entities.Document", b =>
+                {
+                    b.HasOne("congThongTinf.Domain.Entities.User", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UploadedByUser");
+                });
+
+            modelBuilder.Entity("congThongTinf.Domain.Entities.SharedFile", b =>
                 {
                     b.HasOne("congThongTinf.Domain.Entities.User", "UploadedByUser")
                         .WithMany()

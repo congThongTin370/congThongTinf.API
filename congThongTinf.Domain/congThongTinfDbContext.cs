@@ -29,6 +29,8 @@ public class congThongTinfDbContext : DbContext
 
     public DbSet<Leader> Leaders { get; set; }
 
+    public DbSet<SharedFile> SharedFiles { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -139,6 +141,23 @@ public class congThongTinfDbContext : DbContext
             entity.Property(e => e.Rank).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ImageUrl).HasMaxLength(1000);
             entity.HasIndex(e => e.DisplayOrder);
+        });
+
+        modelBuilder.Entity<SharedFile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.FileType).IsRequired().HasMaxLength(128);
+            entity.Property(e => e.FileKey).IsRequired().HasMaxLength(512);
+            entity.Property(e => e.ShareToken).HasMaxLength(64);
+            entity.HasIndex(e => e.ShareToken)
+                .IsUnique()
+                .HasFilter("\"ShareToken\" IS NOT NULL");
+
+            entity.HasOne(e => e.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

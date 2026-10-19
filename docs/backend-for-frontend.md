@@ -9,9 +9,9 @@
 
   Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
-  Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
+  Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/shared-files`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
-  Mọi file ảnh (ảnh bìa, ảnh trong bài, banner, và `POST /api/blobs/upload`) được kiểm tra định dạng thật và kích thước (tối đa 10 MB, cạnh tối đa 8192 px) rồi chuyển sang WebP quality 82 trước khi lưu R2. Nhận `Content-Type: image/*` hoặc đuôi `.jpg`, `.jpeg`, `.jfif`, `.png`, `.gif`, `.webp`, `.bmp`, `.tif`, `.tiff`, `.tga`, `.pbm`, `.pgm`, `.ppm`, `.qoi`. URL trả về kết thúc bằng `.webp`, `contentType` là `image/webp`. Tài liệu nội bộ không bị chuyển đổi.
+  Mọi file ảnh (ảnh bìa, ảnh trong bài, banner, `POST /api/shared-files`, và `POST /api/blobs/upload`) được kiểm tra định dạng thật và kích thước (tối đa 10 MB, cạnh tối đa 8192 px) rồi chuyển sang WebP quality 82 trước khi lưu R2. Nhận `Content-Type: image/*` hoặc đuôi `.jpg`, `.jpeg`, `.jfif`, `.png`, `.gif`, `.webp`, `.bmp`, `.tif`, `.tiff`, `.tga`, `.pbm`, `.pgm`, `.ppm`, `.qoi`. URL trả về kết thúc bằng `.webp`, `contentType` là `image/webp`. Tài liệu nội bộ không bị chuyển đổi.
 
   ## Hệ thống
 
@@ -35,6 +35,7 @@
   - `Document`
   - `Banner`
   - `Leader`
+  - `SharedFile`
 
   API đã mở:
 
@@ -46,10 +47,11 @@
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng R2
+  - Shared file: user đăng nhập upload file, tạo/thu hồi link chia sẻ, user khác đã đăng nhập xem/tải bằng token
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
-  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu.
+  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu, xóa file chia sẻ.
 
   ## Vai trò
 
@@ -776,6 +778,115 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `uploadedByUserName` | string hoặc null, `User.FullName` của người upload (list có include; upload mới thường `null`) |
   | `createdAt` | datetime UTC |
 
+  ## File chia sẻ (Drive MVP)
+
+  File cá nhân của user đã đăng nhập. Khác `Document` (tài liệu nội bộ admin, public). Metadata lưu bảng `SharedFiles`, object lưu R2 folder `shared/{userId}`. Giới hạn **10 MB** (cùng `BlobService`). Ảnh vẫn bị chuyển WebP như các upload khác.
+
+  Mọi endpoint dưới đây cần JWT (Admin hoặc Journalist). Thiếu token: HTTP `401` (framework). Class gắn `[Authorize]`, không lọc role.
+
+  Link chia sẻ là `shareToken` (32 ký tự hex). User khác đã đăng nhập gọi `GET /api/shared-files/links/{token}`. Token `null` = chưa chia sẻ hoặc đã thu hồi. Không hết hạn, không phân quyền xem/sửa, không folder.
+
+  Xem/tải file **không** trả `ApiResult`. Gắn JWT bằng header `Authorization` hoặc query `access_token` (cùng cơ chế hubs). **Không** trả URL public R2; không dùng `fileUrl` R2 để bypass đăng nhập.
+
+  ### Danh sách file của tôi
+
+  `GET /api/shared-files` — token bất kỳ role.
+
+  Query:
+
+  | Param | Kiểu | Mặc định | Rule |
+  | --- | --- | --- | --- |
+  | `pageIndex` | number, optional | `1` | Trang bắt đầu từ `1`. `0` = trả toàn bộ |
+  | `pageSize` | number, optional | `10` | Nếu `<= 0` server gán lại `10` |
+  | `search` | string, optional | — | Không phân biệt hoa thường, khớp `fileName` |
+
+  Chỉ file `uploadedByUserId` = user hiện tại. Sort `CreatedAt` giảm dần.
+
+  Thành công: HTTP `200`, message `Lấy danh sách file của bạn thành công.` `value.data` là object phân trang như documents.
+
+  ### Chi tiết file của tôi
+
+  `GET /api/shared-files/{id}` — chủ file.
+
+  Thành công: HTTP `200`, message `Lấy thông tin file thành công.`
+
+  - Id không tồn tại: HTTP `404`, `File với ID {id} không tồn tại.`
+  - File của user khác: HTTP `403`, `Bạn không có quyền thao tác file này.`
+
+  ### Upload
+
+  `POST /api/shared-files` — `multipart/form-data`.
+
+  | Field | Bắt buộc | Ghi chú |
+  | --- | --- | --- |
+  | `file` | Có | Mọi loại file BlobService nhận. Ảnh → WebP. Tối đa 10 MB |
+
+  Thành công: HTTP `200`, `value.data` là `SharedFileDto`, `isShared: false`, `shareToken`/`shareUrl` = `null`. Message `Tải file chia sẻ thành công.`
+
+  - Không gửi file / file rỗng: HTTP `400`, `File là bắt buộc.`
+  - Lớn hơn 10 MB: HTTP `400`, `File exceeds 10 MB limit.`
+  - User trong token không còn hoặc bị khóa: HTTP `404`.
+
+  ### Tạo link chia sẻ
+
+  `POST /api/shared-files/{id}/share` — chủ file. Không body.
+
+  Nếu chưa có token thì tạo `Guid` dạng `N`. Nếu đã có thì giữ nguyên token (idempotent).
+
+  Thành công: HTTP `200`, message `Tạo liên kết chia sẻ thành công.` `isShared: true`, `shareToken` và `shareUrl` có giá trị. `shareUrl` là URL metadata `.../api/shared-files/links/{token}`.
+
+  Cùng lỗi 404/403 như lấy chi tiết.
+
+  ### Thu hồi link
+
+  `DELETE /api/shared-files/{id}/share` — chủ file.
+
+  Gán `shareToken = null`. Đã thu hồi rồi thì vẫn HTTP `200`. Token cũ không mở được file.
+
+  Thành công: HTTP `200`, message `Thu hồi liên kết chia sẻ thành công.` `isShared: false`, `shareToken`/`shareUrl` = `null`.
+
+  ### Mở bằng link (user đã đăng nhập)
+
+  `GET /api/shared-files/links/{token}` — bất kỳ user đã đăng nhập, không cần là chủ file.
+
+  Thành công: HTTP `200`, message `Lấy file chia sẻ thành công.` `shareToken` và `shareUrl` luôn `null` trên DTO này (không lộ token cho người nhận). `viewUrl` / `downloadUrl` trỏ `.../links/{token}/view` và `.../download`.
+
+  - Token trống: HTTP `400`, `Liên kết chia sẻ không hợp lệ.`
+  - Token sai hoặc đã thu hồi: HTTP `404`, `Liên kết chia sẻ không hợp lệ hoặc đã bị thu hồi.`
+
+  ### Xem / tải (chủ file)
+
+  `GET /api/shared-files/{id}/view` — `Content-Disposition` inline.  
+  `GET /api/shared-files/{id}/download` — `attachment; filename="{fileName}"`.
+
+  Cần là chủ file. HTTP `200` stream bytes. Không envelope.
+
+  ### Xem / tải (link chia sẻ)
+
+  `GET /api/shared-files/links/{token}/view` — inline.  
+  `GET /api/shared-files/links/{token}/download` — attachment, tên gốc `fileName`.
+
+  Cần JWT. HTTP `200` stream bytes. Token thu hồi: HTTP `404` envelope.
+
+  UI: `fetch` kèm `Authorization`, tạo blob URL; hoặc `<a href=".../download?access_token={jwt}">`. Không dùng href không token như tài liệu nội bộ.
+
+  ### SharedFileDto
+
+  | Field | Kiểu |
+  | --- | --- |
+  | `id` | Guid |
+  | `fileName` | string, tên gốc lúc upload |
+  | `fileType` | string, content type (ảnh thường `image/webp`) |
+  | `fileSize` | number, bytes |
+  | `uploadedByUserId` | Guid |
+  | `uploadedByUserName` | string hoặc null, `User.FullName` |
+  | `createdAt` | datetime UTC |
+  | `isShared` | bool |
+  | `shareToken` | string hoặc null. Chỉ có khi chủ file và đang chia sẻ |
+  | `shareUrl` | string hoặc null. Chỉ chủ file, URL `GET .../links/{token}` |
+  | `viewUrl` | string. Chủ file: `.../{id}/view`. Người nhận: `.../links/{token}/view` |
+  | `downloadUrl` | string. Chủ file: `.../{id}/download`. Người nhận: `.../links/{token}/download` |
+
   ## Quản lý người dùng (Admin)
 
   Toàn bộ endpoint dưới đây nằm trên `AdminController`, class gắn `[Authorize(Roles = "Admin")]`. Cần token role `Admin`. `UserDto` cùng shape với login / `GET /api/me/details`.
@@ -1038,7 +1149,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | POST | `/api/system/seed-users-roles` | Thêm role, admin và phóng viên nếu chưa có |
   | POST | `/api/system/seed-leaders` | Thêm 6 lãnh đạo Ban Chỉ huy nếu họ tên chưa có. `imageUrl` để trống |
   | POST | `/api/system/seed-news` | Thêm category và 4 bài mẫu |
-  | POST | `/api/system/clear-database` | Xóa News, Leaders, Banners, Documents, Users, Roles, Categories |
+  | POST | `/api/system/clear-database` | Xóa News, Leaders, Banners, Documents, SharedFiles, Users, Roles, Categories |
 
   Thành công trả `ApiResult`, `value.data` có `message` và count tương ứng (`roleCount`, `adminCount`, `journalistCount`, `newsCount`, `leaderCount`).
 
@@ -1050,9 +1161,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `GET /api/admin/banners/files`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `GET /api/admin/banners/files`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`, toàn bộ `/api/shared-files` (kể cả xem/tải). Query `access_token` cũng được chấp nhận trên `/api/shared-files`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
-  - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner và tài liệu dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn.
+  - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner, tài liệu và file chia sẻ dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn. `POST /api/shared-files` chỉ field `file`.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.
   - Đọc payload ở `response.value.data`.
   - Hiện lỗi ở `response.error.message` khi `isSuccess === false`.
@@ -1060,8 +1171,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Map `news.status`: `0` Draft, `1` Pending, `2` Published, `3` Archived.
   - Map `document.category`: `0` General, `1` Policy, `2` Procedure, `3` Report, `4` Guideline.
   - Map `banner.position`: `0` Header (mọi trang), `1` HomeMid (dải giữa trang chủ). Không còn `displayOrder`.
-  - `GET /api/news`, `GET /api/admin/news`, `GET /api/documents`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`.
-  - Nút tải tài liệu: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
+  - `GET /api/news`, `GET /api/admin/news`, `GET /api/documents`, `GET /api/shared-files`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`. File chia sẻ trong `items` có `viewUrl`/`downloadUrl` của chủ file.
+  - Nút tải tài liệu nội bộ: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
+  - File chia sẻ: không public. `fetch` `viewUrl`/`downloadUrl` kèm JWT hoặc thêm `?access_token=`. Người nhận dùng `shareToken` gọi `GET /api/shared-files/links/{token}`. Thu hồi bằng `DELETE /api/shared-files/{id}/share`.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
   - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), bài theo tác giả (`GET /api/admin/news`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

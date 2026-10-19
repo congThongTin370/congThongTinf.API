@@ -22,6 +22,7 @@ public class UnitOfWork : IUnitOfWork
         Documents = new GenericRepository<Document>(dbContext);
         Banners = new GenericRepository<Banner>(dbContext);
         Leaders = new GenericRepository<Leader>(dbContext);
+        SharedFiles = new GenericRepository<SharedFile>(dbContext);
     }
 
     public IGenericRepository<User> Users { get; }
@@ -37,6 +38,8 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<Banner> Banners { get; }
 
     public IGenericRepository<Leader> Leaders { get; }
+
+    public IGenericRepository<SharedFile> SharedFiles { get; }
 
     public void Dispose()
     {

@@ -165,6 +165,7 @@ public static class IocContainer
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IBannerService, BannerService>();
         services.AddScoped<ILeaderService, LeaderService>();
+        services.AddScoped<ISharedFileService, SharedFileService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 
@@ -261,7 +262,8 @@ public static class IocContainer
                         var path = context.HttpContext.Request.Path;
                         if (!string.IsNullOrEmpty(accessToken) &&
                             (path.StartsWithSegments("/hubs/notification") ||
-                             path.StartsWithSegments("/hubs/chat")))
+                             path.StartsWithSegments("/hubs/chat") ||
+                             path.StartsWithSegments("/api/shared-files")))
                             context.Token = accessToken;
                         return Task.CompletedTask;
                     },

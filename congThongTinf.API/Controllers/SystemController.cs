@@ -166,6 +166,7 @@ namespace congThongTinf.API.Controllers
                         () => context.Leaders.ExecuteDeleteAsync(),
                         () => context.Banners.ExecuteDeleteAsync(),
                         () => context.Documents.ExecuteDeleteAsync(),
+                        () => context.SharedFiles.ExecuteDeleteAsync(),
                         () => context.Users.ExecuteDeleteAsync(),
                         () => context.Roles.ExecuteDeleteAsync(),
                         () => context.Categories.ExecuteDeleteAsync(),

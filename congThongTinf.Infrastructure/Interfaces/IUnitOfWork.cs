@@ -17,5 +17,7 @@ public interface IUnitOfWork : IDisposable
 
     IGenericRepository<Leader> Leaders { get; }
 
+    IGenericRepository<SharedFile> SharedFiles { get; }
+
     Task<int> SaveChangesAsync();
 }

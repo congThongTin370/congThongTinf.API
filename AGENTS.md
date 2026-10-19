@@ -48,4 +48,5 @@ Backend projects:
 - Prefer existing project patterns over inventing new ones.
 - Keep implementations simple and appropriate for an MVP.
 - Do not add dependencies unless necessary.
-- Do not run the EF Core CLI (`dotnet ef`, `Add-Migration`, `Update-Database`, `Remove-Migration`). The API applies pending migrations itself on startup through `Database.Migrate()`.
+- Do not run migrations and do not run the EF Core CLI (`dotnet ef`, `migrations add`, `Add-Migration`, `database update`, `Update-Database`, `Remove-Migration`). The API applies pending migrations itself on startup through `Database.Migrate()`; do not trigger that yourself.
+- Do not create, generate, or edit migration files under any `Migrations` folder, including `*.cs`, `*.Designer.cs`, and `*ModelSnapshot.cs`. Change entities and `DbContext` only. Leave migration files for a person to generate outside the agent.

@@ -19,6 +19,7 @@ public class R2StorageAnalyticsController : ControllerBase
     }
 
     [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResult<R2StorageUsageDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<R2StorageUsageDto>), 404)]
     [ProducesResponseType(typeof(ApiResult<R2StorageUsageDto>), 500)]
