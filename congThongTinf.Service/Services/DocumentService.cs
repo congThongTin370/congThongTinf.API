@@ -169,6 +169,29 @@ public class DocumentService : IDocumentService
         return ToDocumentDto(document);
     }
 
+    public async Task<bool> DeleteInternalDocumentAsync(Guid currentUserId, Guid documentId, CancellationToken cancellationToken = default)
+    {
+        _logger.Info($"[DeleteInternalDocumentAsync] Admin {currentUserId} deletes document {documentId}.");
+
+        await EnsureActiveUserAsync(currentUserId);
+
+        var document = await _unitOfWork.Documents.GetByIdAsync(documentId);
+        if (document == null)
+        {
+            _logger.Warn($"[DeleteInternalDocumentAsync] Document {documentId} not found.");
+            throw ErrorHelper.NotFound($"Tài liệu với ID {documentId} không tồn tại.");
+        }
+
+        var fileUrl = document.FileUrl;
+        await _unitOfWork.Documents.HardRemoveRange(new List<Document> { document });
+        await _unitOfWork.SaveChangesAsync();
+
+        await TryDeleteDocumentBlobAsync(fileUrl, cancellationToken);
+
+        _logger.Success($"[DeleteInternalDocumentAsync] Document {documentId} deleted by admin {currentUserId}.");
+        return true;
+    }
+
     public async Task<BlobDownloadResult> DownloadDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
         _logger.Info($"[DownloadDocumentAsync] Download document {documentId}.");
@@ -217,6 +240,22 @@ public class DocumentService : IDocumentService
             throw ErrorHelper.BadRequest("Tài liệu nội bộ phải là pdf, doc, docx, xls, xlsx, ppt, pptx hoặc txt.");
 
         return file;
+    }
+
+    private async Task TryDeleteDocumentBlobAsync(string? fileUrl, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(fileUrl))
+            return;
+
+        try
+        {
+            var key = _blobService.GetKeyFromPublicUrl(fileUrl);
+            await TryDeleteBlobAsync(key, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"[TryDeleteDocumentBlobAsync] Failed to resolve blob '{fileUrl}': {ex.Message}");
+        }
     }
 
     private async Task TryDeleteBlobAsync(string key, CancellationToken cancellationToken)

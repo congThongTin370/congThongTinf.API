@@ -280,10 +280,11 @@ public class NewsService : INewsService
             CoverImageUrl = coverImageUrl,
             CategoryId = dto.CategoryId,
             AuthorId = currentUserId,
-            Status = NewsStatus.Draft,
+            Status = NewsStatus.Published,
         };
 
         await _unitOfWork.News.AddAsync(news);
+        news.PublishedAt = news.CreatedAt;
         await _unitOfWork.SaveChangesAsync();
 
         _logger.Success($"[CreateNews] News {news.Id} created by user {currentUserId}.");

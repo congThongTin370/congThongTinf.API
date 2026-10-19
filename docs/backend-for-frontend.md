@@ -43,7 +43,7 @@
   - Me: đọc profile/role của token, kiểm tra admin
   - News: lấy danh sách (lọc theo ngày tạo và danh mục), lấy chi tiết, tăng lượt xem, tạo, sửa, xóa
   - Category: lấy danh sách, lấy chi tiết, tạo, sửa, xóa mềm (chỉ Admin ghi)
-  - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload tài liệu nội bộ
+  - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload và xóa tài liệu nội bộ
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng R2
@@ -51,7 +51,7 @@
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
-  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu.
+  Tạo bài (`POST /api/news`) gán status `Published` ngay, không có bước duyệt. Chưa có API sửa tài liệu.
 
   ## Vai trò
 
@@ -59,7 +59,7 @@
 
   | Giá trị | Số | Quyền đang gắn trên API |
   | --- | --- | --- |
-  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`, `GET /api/dashboard`, `GET /api/admin/storage` và `GET /api/admin/news`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload tài liệu nội bộ. CRUD user. |
+  | `Admin` | `0` | Tạo tài khoản phóng viên. Gọi được `GET /api/me/check-admin`, `GET /api/dashboard`, `GET /api/admin/storage` và `GET /api/admin/news`. Tạo, sửa, xóa danh mục. Tạo, sửa, xóa banner và đặt banner đang hiện theo vị trí layout. Tạo, sửa, xóa thủ trưởng. Upload và xóa tài liệu nội bộ. CRUD user. |
   | `Journalist` | `1` | Đăng nhập, đăng xuất, đọc role của chính mình. Tạo bài viết, sửa và xóa **bài của chính mình**. Xem danh mục. |
 
   Trong JWT, role là **chuỗi** `"Admin"` hoặc `"Journalist"`, vì token ghi `ClaimTypes.Role` bằng `RoleType.ToString()`.
@@ -525,7 +525,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ### Tạo bài
 
-  `POST /api/news` — cần token, role `Journalist`. `Content-Type: multipart/form-data`. Bài tạo ra có `authorId` là user trong token, status `Draft`.
+  `POST /api/news` — cần token, role `Journalist`. `Content-Type: multipart/form-data`. Bài tạo ra có `authorId` là user trong token, status `Published` (`2`), `publishedAt` bằng `createdAt`. Không có bước gửi duyệt.
 
   Ảnh bìa là file tải từ máy local. Server upload lên R2 (folder `news/{userId}`), lấy URL và lưu vào `coverImageUrl`. Client **không** gửi URL ảnh.
 
@@ -760,7 +760,17 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Token không phải Admin: HTTP `403` (framework, không có envelope).
   - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
 
-  Không có API sửa, xóa, hoặc lấy chi tiết JSON theo id. Tải file dùng `GET /api/documents/{id}/download`.
+  ### Xóa
+
+  `DELETE /api/documents/{id}` — token role `Admin`. Xóa cứng bản ghi và object R2 tương ứng `fileUrl`. Không khôi phục được.
+
+  - Thành công: HTTP `200`, `value.data` là `true`, message `Xóa tài liệu nội bộ thành công.`
+  - Id không tồn tại: HTTP `404`, `Tài liệu với ID {id} không tồn tại.`
+  - Token không phải Admin: HTTP `403` (framework, không có envelope).
+  - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
+  - Xóa bản ghi thành công nhưng object R2 lỗi: vẫn HTTP `200`. File mồ côi được ghi log, không trả lỗi cho client.
+
+  Không có API sửa hoặc lấy chi tiết JSON theo id. Tải file dùng `GET /api/documents/{id}/download`.
 
   ### DocumentDto
 
@@ -1169,7 +1179,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Việc frontend nên làm
 
-  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `GET /api/admin/banners/files`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST /api/documents`, toàn bộ `/api/shared-files` (kể cả xem/tải). Query `access_token` cũng được chấp nhận trên `/api/shared-files`.
+  - Gửi `Authorization: Bearer {accessToken}` cho `/api/auth/logout`, `/api/auth/create-journalist`, `/api/me/*`, `GET /api/dashboard`, `GET /api/admin/storage`, `GET /api/admin/news`, `GET /api/admin/banners/files`, `POST`/`PUT`/`DELETE` `/api/categories`, `POST`/`PUT`/`DELETE` `/api/news`, `POST /api/news/images`, `/api/admin/users`, `POST`/`PUT`/`DELETE` `/api/admin/banners`, `PUT /api/admin/banners/{id}/active`, `POST`/`PUT`/`DELETE` `/api/leaders`, `POST`/`DELETE` `/api/documents`, toàn bộ `/api/shared-files` (kể cả xem/tải). Query `access_token` cũng được chấp nhận trên `/api/shared-files`.
   - `GET /api/news`, `GET /api/news/{id}`, `POST /api/news/{id}/view`, `GET /api/categories`, `GET /api/documents`, `GET /api/documents/{id}/download`, `GET /api/admin/banners`, `GET /api/admin/banners/{id}`, `GET /api/leaders`, `GET /api/leaders/{id}` là public.
   - Tạo/sửa bài báo, upload ảnh bài, tạo/sửa banner, tài liệu và file chia sẻ dùng `multipart/form-data`, không dùng JSON. `POST /api/news` và `PUT /api/news/{id}` gửi ảnh bìa qua field `coverImage`, không gửi `coverImageUrl`. `{id}` bài cần sửa nằm trên URL. `PUT /api/admin/banners/{id}` chỉ gửi field cần đổi; `file` là tùy chọn. `POST /api/shared-files` chỉ field `file`.
   - Giữ token phía client. Hết 30 phút hoặc gặp 401 framework thì bắt đăng nhập lại.

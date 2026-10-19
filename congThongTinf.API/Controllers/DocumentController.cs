@@ -83,4 +83,26 @@ public class DocumentController : ControllerBase
             return StatusCode(statusCode, errorResponse);
         }
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResult<bool>), 200)]
+    [ProducesResponseType(typeof(ApiResult<bool>), 404)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            var result = await _documentService.DeleteInternalDocumentAsync(
+                _claimsService.CurrentUserId,
+                id,
+                HttpContext.RequestAborted);
+            return Ok(ApiResult<bool>.Success(result, "200", "Xóa tài liệu nội bộ thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<bool>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
 }
