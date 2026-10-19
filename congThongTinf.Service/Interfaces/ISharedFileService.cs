@@ -15,6 +15,8 @@ public interface ISharedFileService
 
     Task<SharedFileDto> RevokeShareLinkAsync(Guid currentUserId, Guid fileId);
 
+    Task<bool> DeleteAsync(Guid currentUserId, Guid fileId, CancellationToken cancellationToken = default);
+
     Task<SharedFileDto> GetByShareTokenAsync(string token);
 
     Task<BlobDownloadResult> DownloadMyFileAsync(Guid currentUserId, Guid fileId, CancellationToken cancellationToken = default);

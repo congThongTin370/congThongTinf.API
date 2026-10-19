@@ -142,6 +142,22 @@ public class SharedFileService : ISharedFileService
         return ToDto(file, forOwner: true);
     }
 
+    public async Task<bool> DeleteAsync(Guid currentUserId, Guid fileId, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveUserAsync(currentUserId);
+        var file = await GetOwnedFileAsync(currentUserId, fileId, tracking: true);
+
+        var fileKey = file.FileKey;
+        await _unitOfWork.SharedFiles.HardRemoveRange(new List<SharedFile> { file });
+        await _unitOfWork.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(fileKey))
+            await TryDeleteBlobAsync(fileKey, cancellationToken);
+
+        _logger.Success($"[DeleteAsync] Shared file {fileId} deleted by {currentUserId}.");
+        return true;
+    }
+
     public async Task<SharedFileDto> GetByShareTokenAsync(string token)
     {
         var file = await GetSharedFileByTokenAsync(token, tracking: false);

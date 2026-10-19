@@ -47,11 +47,11 @@
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
   - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng R2
-  - Shared file: user đăng nhập upload file, tạo/thu hồi link chia sẻ, user khác đã đăng nhập xem/tải bằng token
+  - Shared file: user đăng nhập upload file, tạo/thu hồi link, xóa file của mình; user khác đã đăng nhập xem/tải bằng token
   - Blob: endpoint test upload/xóa file Cloudflare R2
   - System: seed / xóa dữ liệu local
 
-  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu, xóa file chia sẻ.
+  Chưa có API: xuất bản bài viết (chuyển status sang `Published`), sửa/xóa tài liệu.
 
   ## Vai trò
 
@@ -845,6 +845,14 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   Thành công: HTTP `200`, message `Thu hồi liên kết chia sẻ thành công.` `isShared: false`, `shareToken`/`shareUrl` = `null`.
 
+  ### Xóa file
+
+  `DELETE /api/shared-files/{id}` — chủ file. Xóa bản ghi `SharedFiles` rồi object R2 (`FileKey`). Token chia sẻ (nếu có) hết hiệu lực.
+
+  Thành công: HTTP `200`, `value.data` = `true`, message `Xóa file thành công.`
+
+  Cùng lỗi 404/403 như lấy chi tiết. User khác gọi: HTTP `403`.
+
   ### Mở bằng link (user đã đăng nhập)
 
   `GET /api/shared-files/links/{token}` — bất kỳ user đã đăng nhập, không cần là chủ file.
@@ -1173,7 +1181,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Map `banner.position`: `0` Header (mọi trang), `1` HomeMid (dải giữa trang chủ). Không còn `displayOrder`.
   - `GET /api/news`, `GET /api/admin/news`, `GET /api/documents`, `GET /api/shared-files`, `GET /api/admin/users`, `GET /api/admin/banners`: `value.data` là object `{ items, totalCount, currentPage, totalPages, pageSize, hasPrevious, hasNext }`. Tài liệu trong `items` còn có `downloadUrl`. File chia sẻ trong `items` có `viewUrl`/`downloadUrl` của chủ file.
   - Nút tải tài liệu nội bộ: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
-  - File chia sẻ: không public. `fetch` `viewUrl`/`downloadUrl` kèm JWT hoặc thêm `?access_token=`. Người nhận dùng `shareToken` gọi `GET /api/shared-files/links/{token}`. Thu hồi bằng `DELETE /api/shared-files/{id}/share`.
+  - File chia sẻ: không public. `fetch` `viewUrl`/`downloadUrl` kèm JWT hoặc thêm `?access_token=`. Người nhận dùng `shareToken` gọi `GET /api/shared-files/links/{token}`. Thu hồi bằng `DELETE /api/shared-files/{id}/share`. Xóa file của mình: `DELETE /api/shared-files/{id}`.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
   - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), bài theo tác giả (`GET /api/admin/news`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.

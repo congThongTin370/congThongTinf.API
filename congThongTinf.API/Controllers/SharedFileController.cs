@@ -97,6 +97,28 @@ public class SharedFileController : ControllerBase
         }
     }
 
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResult<bool>), 200)]
+    [ProducesResponseType(typeof(ApiResult<bool>), 403)]
+    [ProducesResponseType(typeof(ApiResult<bool>), 404)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            var result = await _sharedFileService.DeleteAsync(
+                _claimsService.CurrentUserId,
+                id,
+                HttpContext.RequestAborted);
+            return Ok(ApiResult<bool>.Success(result, "200", "Xóa file thành công."));
+        }
+        catch (Exception ex)
+        {
+            var statusCode = ExceptionUtils.ExtractStatusCode(ex);
+            var errorResponse = ExceptionUtils.CreateErrorResponse<bool>(ex);
+            return StatusCode(statusCode, errorResponse);
+        }
+    }
+
     [HttpDelete("{id:guid}/share")]
     [ProducesResponseType(typeof(ApiResult<SharedFileDto>), 200)]
     [ProducesResponseType(typeof(ApiResult<SharedFileDto>), 404)]
