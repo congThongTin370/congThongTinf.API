@@ -261,11 +261,11 @@ namespace congThongTinf.API.Controllers
                 now,
                 adminRole.Id,
                 hasher,
-                "Admin@123",
+                "123321@",
                 new (string Username, string Email, string FullName)[]
                 {
-                    ("admin", "admin@370.local", "Quản trị viên 1"),
-                    ("admin2", "admin2@370.local", "Quản trị viên 2")
+                    ("admin", "admin1@gmail.com", "Quản trị viên 1"),
+                    ("admin2", "admin2@gmail.com", "Quản trị viên 2")
                 });
 
             var addedJournalists = await SeedUsers(
