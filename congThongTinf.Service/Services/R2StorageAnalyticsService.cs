@@ -12,12 +12,12 @@ namespace congThongTinf.Service.Services;
 public class R2StorageAnalyticsService : IR2StorageAnalyticsService
 {
     private readonly IAmazonS3 _s3Client;
-    private readonly CloudflareR2Options _options;
+    private readonly ObjectStorageOptions _options;
     private readonly ILogger<R2StorageAnalyticsService> _logger;
 
     public R2StorageAnalyticsService(
         IAmazonS3 s3Client,
-        IOptions<CloudflareR2Options> options,
+        IOptions<ObjectStorageOptions> options,
         ILogger<R2StorageAnalyticsService> logger)
     {
         _s3Client = s3Client;
@@ -31,12 +31,12 @@ public class R2StorageAnalyticsService : IR2StorageAnalyticsService
         var quotaBytes = _options.StorageQuotaBytes;
 
         if (string.IsNullOrEmpty(bucketName))
-            throw ErrorHelper.Internal("Chưa cấu hình tên bucket R2.");
+            throw ErrorHelper.Internal("Chưa cấu hình tên bucket lưu trữ.");
 
         if (quotaBytes <= 0)
-            throw ErrorHelper.Internal("Hạn mức lưu trữ R2 chưa được cấu hình.");
+            throw ErrorHelper.Internal("Hạn mức lưu trữ chưa được cấu hình.");
 
-        _logger.LogInformation("Listing R2 objects to measure bucket {Bucket}.", bucketName);
+        _logger.LogInformation("Listing objects to measure bucket {Bucket}.", bucketName);
 
         long usedBytes = 0;
         long objectCount = 0;
@@ -56,7 +56,7 @@ public class R2StorageAnalyticsService : IR2StorageAnalyticsService
                 {
                     var size = obj.Size ?? 0;
                     if (size < 0)
-                        throw ErrorHelper.WithStatus(502, "R2 trả kích thước object không hợp lệ.");
+                        throw ErrorHelper.WithStatus(502, "Kho lưu trữ trả kích thước object không hợp lệ.");
 
                     usedBytes += size;
                     objectCount++;
@@ -68,13 +68,13 @@ public class R2StorageAnalyticsService : IR2StorageAnalyticsService
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            _logger.LogWarning(ex, "R2 bucket {Bucket} was not found.", bucketName);
-            throw ErrorHelper.NotFound("Không tìm thấy bucket R2.");
+            _logger.LogWarning(ex, "Object storage bucket {Bucket} was not found.", bucketName);
+            throw ErrorHelper.NotFound("Không tìm thấy bucket lưu trữ.");
         }
         catch (AmazonS3Exception ex)
         {
-            _logger.LogError(ex, "R2 list failed for bucket {Bucket}.", bucketName);
-            throw ErrorHelper.WithStatus(502, "Không liệt kê được object trong bucket R2.");
+            _logger.LogError(ex, "Object storage list failed for bucket {Bucket}.", bucketName);
+            throw ErrorHelper.WithStatus(502, "Không liệt kê được object trong bucket lưu trữ.");
         }
 
         var remainingBytes = usedBytes >= quotaBytes ? 0 : quotaBytes - usedBytes;

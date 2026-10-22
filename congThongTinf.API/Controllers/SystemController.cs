@@ -1,5 +1,7 @@
 ﻿using congThongTinf.Domain;
 using congThongTinf.Domain.Entities;
+using congThongTinf.Service.DTOs;
+using congThongTinf.Service.Interfaces.Commons;
 using congThongTinf.Service.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +13,13 @@ namespace congThongTinf.API.Controllers
     public class SystemController : ControllerBase
     {
         private readonly congThongTinfDbContext _context;
+        private readonly IBlobService _blobService;
         private readonly ILoggerService _logger;
 
-        public SystemController(congThongTinfDbContext context, ILoggerService logger)
+        public SystemController(congThongTinfDbContext context, IBlobService blobService, ILoggerService logger)
         {
             _context = context;
+            _blobService = blobService;
             _logger = logger;
         }
 
@@ -29,6 +33,7 @@ namespace congThongTinf.API.Controllers
                 var seededUsersRoles = await SeedUsersRoles();
                 var seededCount = await SeedNews();
                 var leaderCount = await SeedLeaders();
+                var bannerCount = await SeedBanners();
                 return Ok(ApiResult<object>.Success(new
                 {
                     Message = "Data seeded successfully.",
@@ -36,7 +41,8 @@ namespace congThongTinf.API.Controllers
                     AdminCount = seededUsersRoles.AdminCount,
                     JournalistCount = seededUsersRoles.JournalistCount,
                     NewsCount = seededCount,
-                    LeaderCount = leaderCount
+                    LeaderCount = leaderCount,
+                    BannerCount = bannerCount
                 }));
             }
             catch (DbUpdateException dbEx)
@@ -98,6 +104,30 @@ namespace congThongTinf.API.Controllers
             {
                 _logger.Error($"General error: {ex.Message}");
                 return StatusCode(500, "Error seeding leaders: General failure.");
+            }
+        }
+
+        [HttpPost("seed-banners")]
+        public async Task<IActionResult> SeedBannersData()
+        {
+            try
+            {
+                var bannerCount = await SeedBanners();
+                return Ok(ApiResult<object>.Success(new
+                {
+                    Message = "Banners seeded successfully.",
+                    BannerCount = bannerCount
+                }));
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.Error($"Database update error: {dbEx.Message}");
+                return StatusCode(500, "Error seeding banners: Database issue.");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"General error: {ex.Message}");
+                return StatusCode(500, "Error seeding banners: General failure.");
             }
         }
 
@@ -335,6 +365,78 @@ namespace congThongTinf.API.Controllers
                 await _context.SaveChangesAsync();
 
             _logger.Success($"Đã seed {added} lãnh đạo đơn vị.");
+            return added;
+        }
+
+        private async Task<int> SeedBanners()
+        {
+            var admin = await _context.Users.FirstOrDefaultAsync(u => u.Email == "admin@370.local")
+                ?? await _context.Users.FirstOrDefaultAsync(u => u.IsActive);
+            if (admin == null)
+            {
+                _logger.Warn("Không seed banner: chưa có tài khoản admin.");
+                return 0;
+            }
+
+            IReadOnlyList<BlobObjectDto> stored;
+            try
+            {
+                stored = await _blobService.ListImagesAsync("banners");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"Không liệt kê được ảnh banner trên kho lưu trữ: {ex.Message}");
+                stored = [];
+            }
+
+            var seeds = new (string FileName, string Title, BannerPosition Position)[]
+            {
+                ("top-banner.webp", "Banner đầu trang", BannerPosition.Header),
+                ("mid-banner1.webp", "Banner giữa trang chủ", BannerPosition.HomeMid)
+            };
+
+            var existingKeys = await _context.Banners
+                .Select(b => b.FileKey)
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            var added = 0;
+
+            foreach (var seed in seeds)
+            {
+                var key = $"banners/{seed.FileName}";
+                if (existingKeys.Contains(key))
+                    continue;
+
+                var blob = stored.FirstOrDefault(item =>
+                    string.Equals(Path.GetFileName(item.Key), seed.FileName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase));
+
+                if (blob == null)
+                    _logger.Warn($"File seed banner '{key}' chưa có trên kho lưu trữ, vẫn tạo bản ghi.");
+
+                _context.Banners.Add(new Banner
+                {
+                    Id = Guid.NewGuid(),
+                    Title = seed.Title,
+                    ImageUrl = blob?.Url ?? _blobService.GetPublicUrl(key),
+                    FileKey = blob?.Key ?? key,
+                    FileName = seed.FileName,
+                    FileType = "image/webp",
+                    FileSize = blob?.Size ?? 0,
+                    Position = seed.Position,
+                    IsActive = true,
+                    UploadedByUserId = admin.Id,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                added++;
+            }
+
+            if (added > 0)
+                await _context.SaveChangesAsync();
+
+            _logger.Success($"Đã seed {added} banner hệ thống.");
             return added;
         }
 

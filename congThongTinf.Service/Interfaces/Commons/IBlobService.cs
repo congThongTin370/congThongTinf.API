@@ -8,12 +8,12 @@ namespace congThongTinf.Service.Interfaces.Commons
     public interface IBlobService
     {
         /// <summary>
-        /// Validates and uploads a file to Cloudflare R2.
+        /// Validates and uploads a file to object storage.
         /// </summary>
-        Task<UploadFileResultDto> UploadFileAsync(IFormFile file, string folder = "uploads", CancellationToken cancellationToken = default);
+        Task<UploadFileResultDto> UploadFileAsync(IFormFile file, string folder = "uploads", CancellationToken cancellationToken = default, string? objectFileName = null);
 
         /// <summary>
-        /// Deletes an object from Cloudflare R2.
+        /// Deletes an object from object storage.
         /// </summary>
         Task DeleteFileAsync(string key, CancellationToken cancellationToken = default);
 
@@ -23,7 +23,7 @@ namespace congThongTinf.Service.Interfaces.Commons
         string GetPublicUrl(string key);
 
         /// <summary>
-        /// Opens an object stream from R2. Caller must dispose the result.
+        /// Opens an object stream from object storage. Caller must dispose the result.
         /// </summary>
         Task<BlobDownloadResult> DownloadFileAsync(string key, CancellationToken cancellationToken = default);
 

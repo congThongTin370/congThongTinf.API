@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using congThongTinf.Domain.Entities;
 using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Service.DTOs;
@@ -11,6 +12,10 @@ namespace congThongTinf.Service.Services;
 
 public class BannerService : IBannerService
 {
+    private static readonly Regex BannerFileNameRegex = new(
+        @"^(top|mid)-banner(\d+)?\.webp$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly IBlobService _blobService;
     private readonly ILoggerService _logger;
     private readonly IUnitOfWork _unitOfWork;
@@ -99,7 +104,8 @@ public class BannerService : IBannerService
             ? Path.GetFileNameWithoutExtension(file.FileName)
             : form.Title.Trim();
 
-        var upload = await _blobService.UploadFileAsync(file, "banners", cancellationToken);
+        var objectFileName = await AllocateBannerFileNameAsync(form.Position, cancellationToken);
+        var upload = await _blobService.UploadFileAsync(file, "banners", cancellationToken, objectFileName);
 
         var banner = new Banner
         {
@@ -107,7 +113,7 @@ public class BannerService : IBannerService
             ImageUrl = upload.Url,
             LinkUrl = NormalizeLinkUrl(form.LinkUrl),
             FileKey = upload.Key,
-            FileName = file.FileName,
+            FileName = objectFileName,
             FileType = Truncate(upload.ContentType, 128),
             FileSize = upload.Size,
             Position = form.Position,
@@ -158,6 +164,7 @@ public class BannerService : IBannerService
         if (form.LinkUrl != null)
             banner.LinkUrl = NormalizeLinkUrl(form.LinkUrl);
 
+        var previousPosition = banner.Position;
         if (form.Position.HasValue)
         {
             EnsureValidPosition(form.Position.Value);
@@ -172,11 +179,15 @@ public class BannerService : IBannerService
         if (form.File != null)
         {
             var file = ValidateImage(form.File);
-            var upload = await _blobService.UploadFileAsync(file, "banners", cancellationToken);
+            var reuseKey = banner.Position == previousPosition && LooksLikeBannerFileName(banner.FileName);
+            var objectFileName = reuseKey
+                ? Path.GetFileName(banner.FileName)
+                : await AllocateBannerFileNameAsync(banner.Position, cancellationToken);
+            var upload = await _blobService.UploadFileAsync(file, "banners", cancellationToken, objectFileName);
             uploadedKey = upload.Key;
             banner.ImageUrl = upload.Url;
             banner.FileKey = upload.Key;
-            banner.FileName = file.FileName;
+            banner.FileName = objectFileName;
             banner.FileType = Truncate(upload.ContentType, 128);
             banner.FileSize = upload.Size;
         }
@@ -262,6 +273,59 @@ public class BannerService : IBannerService
     {
         if (!Enum.IsDefined(position))
             throw ErrorHelper.BadRequest("Vị trí banner không hợp lệ.");
+    }
+
+    private async Task<string> AllocateBannerFileNameAsync(BannerPosition position, CancellationToken cancellationToken)
+    {
+        var prefix = ToBannerFilePrefix(position);
+        var images = await _blobService.ListImagesAsync("banners", cancellationToken);
+        var maxNumber = 0;
+
+        foreach (var image in images)
+        {
+            var name = Path.GetFileName(image.Key);
+            if (!TryParseBannerNumber(name, prefix, out var number))
+                continue;
+
+            if (number > maxNumber)
+                maxNumber = number;
+        }
+
+        return $"{prefix}-banner{maxNumber + 1}.webp";
+    }
+
+    private static string ToBannerFilePrefix(BannerPosition position)
+    {
+        return position switch
+        {
+            BannerPosition.Header => "top",
+            BannerPosition.HomeMid => "mid",
+            _ => throw ErrorHelper.BadRequest("Vị trí banner không hợp lệ.")
+        };
+    }
+
+    private static bool LooksLikeBannerFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        return BannerFileNameRegex.IsMatch(Path.GetFileName(fileName));
+    }
+
+    private static bool TryParseBannerNumber(string fileName, string prefix, out int number)
+    {
+        number = 0;
+        var match = BannerFileNameRegex.Match(fileName);
+        if (!match.Success)
+            return false;
+
+        if (!string.Equals(match.Groups[1].Value, prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        number = match.Groups[2].Success && match.Groups[2].Length > 0
+            ? int.Parse(match.Groups[2].Value)
+            : 1;
+        return true;
     }
 
     private static string? NormalizeLinkUrl(string? linkUrl)

@@ -19,15 +19,16 @@ using System.Threading.Tasks;
 
 namespace congThongTinf.Service.Services.Commons
 {
-    public class CloudflareR2Options
+    public class ObjectStorageOptions
     {
-        public const string SectionName = "CloudflareR2";
+        public const string SectionName = "ObjectStorage";
 
         public string ServiceUrl { get; set; } = string.Empty;
         public string BucketName { get; set; } = string.Empty;
         public string PublicUrl { get; set; } = string.Empty;
         public string AccessKey { get; set; } = string.Empty;
         public string SecretKey { get; set; } = string.Empty;
+        public string Region { get; set; } = "us-east-1";
         public long StorageQuotaBytes { get; set; } = 10L * 1024 * 1024 * 1024;
     }
 
@@ -38,17 +39,17 @@ namespace congThongTinf.Service.Services.Commons
         private const int WebpQuality = 82;
 
         private readonly IAmazonS3 _s3Client;
-        private readonly CloudflareR2Options _options;
+        private readonly ObjectStorageOptions _options;
         private readonly ILogger<BlobService> _logger;
 
-        public BlobService(IAmazonS3 s3Client, IOptions<CloudflareR2Options> options, ILogger<BlobService> logger)
+        public BlobService(IAmazonS3 s3Client, IOptions<ObjectStorageOptions> options, ILogger<BlobService> logger)
         {
             _s3Client = s3Client;
             _options = options.Value;
             _logger = logger;
         }
 
-        public async Task<UploadFileResultDto> UploadFileAsync(IFormFile file, string folder = "uploads", CancellationToken cancellationToken = default)
+        public async Task<UploadFileResultDto> UploadFileAsync(IFormFile file, string folder = "uploads", CancellationToken cancellationToken = default, string? objectFileName = null)
         {
             var sw = Stopwatch.StartNew();
             _logger.LogInformation("Upload requested. Folder: {Folder}, File: {FileName}, ContentType: {ContentType}, Size: {Size} bytes",
@@ -69,7 +70,8 @@ namespace congThongTinf.Service.Services.Commons
             }
 
             // Buffer into a seekable MemoryStream with known length so the SDK sends a
-            // plain signed payload instead of a streaming/chunked one (unsupported by R2).
+            // plain signed payload instead of a streaming/chunked one (S3-compatible gateways
+            // such as SeaweedFS often lack AWS flexible-checksum / streaming SigV4 support).
             await using var source = file.OpenReadStream();
             using var buffer = new MemoryStream((int)file.Length);
             await source.CopyToAsync(buffer, cancellationToken);
@@ -79,8 +81,8 @@ namespace congThongTinf.Service.Services.Commons
             var contentType = payload.ContentType;
             var size = payload.Size;
 
-            var key = $"{folder.Trim('/')}/{Guid.NewGuid():N}{extension}";
-            _logger.LogInformation("Uploading to R2 bucket '{Bucket}' with key '{Key}'...", _options.BucketName, key);
+            var key = BuildObjectKey(folder, objectFileName, extension);
+            _logger.LogInformation("Uploading to bucket '{Bucket}' with key '{Key}'...", _options.BucketName, key);
 
             var request = new PutObjectRequest
             {
@@ -89,9 +91,8 @@ namespace congThongTinf.Service.Services.Commons
                 InputStream = payload.Stream,
                 ContentType = contentType,
                 AutoCloseStream = false,
-                // R2 does not support Streaming SigV4 (STREAMING-AWS4-HMAC-SHA256-PAYLOAD).
-                // Both flags must be set per request for AWSSDK.S3 4.x.
-                DisablePayloadSigning = true,
+                // AWSSDK only allows DisablePayloadSigning over HTTPS.
+                DisablePayloadSigning = IsHttpsEndpoint,
                 DisableDefaultChecksumValidation = true
             };
 
@@ -104,7 +105,7 @@ namespace congThongTinf.Service.Services.Commons
                 if (payload.OwnsStream)
                     await payload.Stream.DisposeAsync();
 
-                _logger.LogError(ex, "R2 upload failed for key '{Key}' after {ElapsedMs} ms.", key, sw.ElapsedMilliseconds);
+                _logger.LogError(ex, "Object storage upload failed for key '{Key}' after {ElapsedMs} ms.", key, sw.ElapsedMilliseconds);
                 throw;
             }
 
@@ -139,7 +140,7 @@ namespace congThongTinf.Service.Services.Commons
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "R2 delete failed for key '{Key}'.", key);
+                _logger.LogError(ex, "Object storage delete failed for key '{Key}'.", key);
                 throw;
             }
         }
@@ -151,10 +152,10 @@ namespace congThongTinf.Service.Services.Commons
                 throw CreateValidationException("Folder is required.");
 
             if (string.IsNullOrWhiteSpace(_options.BucketName))
-                throw ErrorHelper.Internal("Chưa cấu hình tên bucket R2.");
+                throw ErrorHelper.Internal("Chưa cấu hình tên bucket lưu trữ.");
 
             prefix += "/";
-            _logger.LogInformation("Listing images in R2 prefix {Prefix}.", prefix);
+            _logger.LogInformation("Listing images in object storage prefix {Prefix}.", prefix);
 
             var images = new List<BlobObjectDto>();
             try
@@ -191,13 +192,13 @@ namespace congThongTinf.Service.Services.Commons
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning(ex, "R2 bucket {Bucket} was not found.", _options.BucketName);
-                throw ErrorHelper.NotFound("Không tìm thấy bucket R2.");
+                _logger.LogWarning(ex, "Object storage bucket {Bucket} was not found.", _options.BucketName);
+                throw ErrorHelper.NotFound("Không tìm thấy bucket lưu trữ.");
             }
             catch (AmazonS3Exception ex)
             {
-                _logger.LogError(ex, "R2 list failed for prefix {Prefix}.", prefix);
-                throw ErrorHelper.WithStatus(502, "Không liệt kê được ảnh trong folder R2.");
+                _logger.LogError(ex, "Object storage list failed for prefix {Prefix}.", prefix);
+                throw ErrorHelper.WithStatus(502, "Không liệt kê được ảnh trong folder lưu trữ.");
             }
 
             return images
@@ -223,7 +224,7 @@ namespace congThongTinf.Service.Services.Commons
             if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
                 return uri.AbsolutePath.TrimStart('/');
 
-            throw CreateValidationException("Url is not a valid R2 public URL.");
+            throw CreateValidationException("Url is not a valid object storage public URL.");
         }
 
         public async Task<BlobDownloadResult> DownloadFileAsync(string key, CancellationToken cancellationToken = default)
@@ -254,7 +255,7 @@ namespace congThongTinf.Service.Services.Commons
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning("R2 object '{Key}' was not found.", key);
+                _logger.LogWarning("Object storage object '{Key}' was not found.", key);
                 var notFound = new InvalidOperationException("File not found.");
                 notFound.Data["StatusCode"] = 404;
                 throw notFound;
@@ -320,6 +321,22 @@ namespace congThongTinf.Service.Services.Commons
 
             return new PreparedBlob(webp, ".webp", "image/webp", webp.Length, OwnsStream: true);
         }
+
+        private static string BuildObjectKey(string folder, string? objectFileName, string extension)
+        {
+            var prefix = folder.Trim().Trim('/');
+            if (string.IsNullOrWhiteSpace(objectFileName))
+                return $"{prefix}/{Guid.NewGuid():N}{extension}";
+
+            var name = Path.GetFileName(objectFileName.Trim());
+            if (string.IsNullOrWhiteSpace(name))
+                return $"{prefix}/{Guid.NewGuid():N}{extension}";
+
+            return $"{prefix}/{name}";
+        }
+
+        private bool IsHttpsEndpoint =>
+            _options.ServiceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
         private readonly record struct PreparedBlob(MemoryStream Stream, string Extension, string ContentType, long Size, bool OwnsStream);
 

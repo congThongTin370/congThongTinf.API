@@ -1,4 +1,6 @@
-﻿using congThongTinf.Domain;
+﻿using Amazon.S3;
+using Amazon.S3.Model;
+using congThongTinf.Domain;
 using congThongTinf.Infrastructure.Commons;
 using congThongTinf.Infrastructure.Interfaces;
 using congThongTinf.Service.Interfaces;
@@ -83,7 +85,7 @@ public static class IocContainer
     //    return services;
     //}
 
-    public static IServiceCollection SetupCloudflareR2(this IServiceCollection services)
+    public static IServiceCollection SetupObjectStorage(this IServiceCollection services)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
@@ -93,23 +95,76 @@ public static class IocContainer
             .AddEnvironmentVariables()
             .Build();
 
-        services.Configure<CloudflareR2Options>(configuration.GetSection(CloudflareR2Options.SectionName));
+        services.Configure<ObjectStorageOptions>(configuration.GetSection(ObjectStorageOptions.SectionName));
 
-        var r2 = configuration.GetSection(CloudflareR2Options.SectionName).Get<CloudflareR2Options>()
-                 ?? throw new InvalidOperationException("CloudflareR2 configuration section is missing.");
+        var storage = configuration.GetSection(ObjectStorageOptions.SectionName).Get<ObjectStorageOptions>()
+                 ?? throw new InvalidOperationException("ObjectStorage configuration section is missing.");
 
-        services.AddSingleton<Amazon.S3.IAmazonS3>(_ =>
+        if (string.IsNullOrWhiteSpace(storage.ServiceUrl) ||
+            string.IsNullOrWhiteSpace(storage.BucketName) ||
+            string.IsNullOrWhiteSpace(storage.AccessKey) ||
+            string.IsNullOrWhiteSpace(storage.SecretKey))
         {
-            var s3Config = new Amazon.S3.AmazonS3Config
+            throw new InvalidOperationException("ObjectStorage ServiceUrl, BucketName, AccessKey, and SecretKey are required.");
+        }
+
+        services.AddSingleton<IAmazonS3>(_ =>
+        {
+            var region = string.IsNullOrWhiteSpace(storage.Region) ? "us-east-1" : storage.Region;
+            var s3Config = new AmazonS3Config
             {
-                ServiceURL = r2.ServiceUrl,
+                ServiceURL = storage.ServiceUrl,
                 ForcePathStyle = true,
-                AuthenticationRegion = "auto"
+                AuthenticationRegion = region,
+                UseHttp = storage.ServiceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             };
-            return new Amazon.S3.AmazonS3Client(r2.AccessKey, r2.SecretKey, s3Config);
+
+            var client = new AmazonS3Client(storage.AccessKey, storage.SecretKey, s3Config);
+            EnsureBucketExists(client, storage.BucketName);
+            return client;
         });
 
         return services;
+    }
+
+    private static void EnsureBucketExists(IAmazonS3 client, string bucketName)
+    {
+        const int maxAttempts = 10;
+        Exception? lastError = null;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var buckets = client.ListBucketsAsync().GetAwaiter().GetResult();
+                if (buckets.Buckets?.Any(b => string.Equals(b.BucketName, bucketName, StringComparison.OrdinalIgnoreCase)) == true)
+                    return;
+
+                client.PutBucketAsync(new PutBucketRequest
+                {
+                    BucketName = bucketName,
+                    UseClientRegion = true
+                }).GetAwaiter().GetResult();
+                return;
+            }
+            catch (AmazonS3Exception ex) when (
+                string.Equals(ex.ErrorCode, "BucketAlreadyOwnedByYou", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ex.ErrorCode, "BucketAlreadyExists", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                lastError = ex;
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw new InvalidOperationException($"Unable to ensure object storage bucket '{bucketName}'.", lastError);
     }
 
     public static IServiceCollection SetupVnpay(this IServiceCollection services)
@@ -155,7 +210,7 @@ public static class IocContainer
     {
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IAuthService, AuthService>();
-        services.SetupCloudflareR2();
+        services.SetupObjectStorage();
         services.AddScoped<IR2StorageAnalyticsService, R2StorageAnalyticsService>();
         services.AddScoped<IBlobService, BlobService>();
         services.AddScoped<IAdminService, AdminService>();

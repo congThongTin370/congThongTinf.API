@@ -17,7 +17,7 @@ public class BlobController : ControllerBase
     }
 
     /// <summary>
-    /// Test endpoint: upload a file to Cloudflare R2.
+    /// Test endpoint: upload a file to object storage.
     /// </summary>
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
@@ -39,7 +39,7 @@ public class BlobController : ControllerBase
     }
 
     /// <summary>
-    /// Test endpoint: delete an object from Cloudflare R2 by key.
+    /// Test endpoint: delete an object from object storage by key.
     /// </summary>
     [HttpDelete]
     [ProducesResponseType(typeof(ApiResult<bool>), 200)]

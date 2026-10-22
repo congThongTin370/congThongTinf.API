@@ -1,0 +1,25 @@
+{
+  "identities": [
+    {
+      "name": "anonymous",
+      "actions": [
+        "Read"
+      ]
+    },
+    {
+      "name": "congthongtin",
+      "credentials": [
+        {
+          "accessKey": "congthongtin",
+          "secretKey": "congthongtin_secret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List"
+      ]
+    }
+  ]
+}

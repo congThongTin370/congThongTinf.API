@@ -22,13 +22,31 @@
   docker pull phuctran362003/congthongtinf.api:latest
   ```
 
-  Khi frontend chạy trực tiếp trên máy local, dùng API URL `http://localhost:5000`. Khi frontend và backend chạy trong cùng Docker network, không dùng `localhost` từ container frontend; dùng tên service backend và cổng container, ví dụ `http://congthongtinf.api:8080`. Các biến môi trường của backend như PostgreSQL, JWT và Cloudflare R2 vẫn phải được cấu hình bởi môi trường triển khai.
+  Khi frontend chạy trực tiếp trên máy local, dùng API URL `http://localhost:5000`. Khi frontend và backend chạy trong cùng Docker network, không dùng `localhost` từ container frontend; dùng tên service backend và cổng container, ví dụ `http://congthongtinf.api:8080`. Các biến môi trường của backend như PostgreSQL, JWT và `ObjectStorage` (SeaweedFS S3) vẫn phải được cấu hình bởi môi trường triển khai.
 
   Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
   Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/shared-files`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
 
-  Mọi file ảnh (ảnh bìa, ảnh trong bài, banner, `POST /api/shared-files`, và `POST /api/blobs/upload`) được kiểm tra định dạng thật và kích thước (tối đa 10 MB, cạnh tối đa 8192 px) rồi chuyển sang WebP quality 82 trước khi lưu R2. Nhận `Content-Type: image/*` hoặc đuôi `.jpg`, `.jpeg`, `.jfif`, `.png`, `.gif`, `.webp`, `.bmp`, `.tif`, `.tiff`, `.tga`, `.pbm`, `.pgm`, `.ppm`, `.qoi`. URL trả về kết thúc bằng `.webp`, `contentType` là `image/webp`. Tài liệu nội bộ không bị chuyển đổi.
+  Mọi file ảnh (ảnh bìa, ảnh trong bài, banner, `POST /api/shared-files`, và `POST /api/blobs/upload`) được kiểm tra định dạng thật và kích thước (tối đa 10 MB, cạnh tối đa 8192 px) rồi chuyển sang WebP quality 82 trước khi lưu SeaweedFS. Nhận `Content-Type: image/*` hoặc đuôi `.jpg`, `.jpeg`, `.jfif`, `.png`, `.gif`, `.webp`, `.bmp`, `.tif`, `.tiff`, `.tga`, `.pbm`, `.pgm`, `.ppm`, `.qoi`. URL trả về kết thúc bằng `.webp`, `contentType` là `image/webp`. Tài liệu nội bộ không bị chuyển đổi.
+
+  ## Object storage (SeaweedFS)
+
+  File không còn lưu Cloudflare R2. `IBlobService` vẫn dùng AWS SDK S3, trỏ tới SeaweedFS self-hosted (API S3-compatible). Abstraction upload/download/xóa/list không đổi.
+
+  Docker Compose service `congthongtinf.seaweedfs` (`chrislusf/seaweedfs:3.97`, `weed server -s3`). Cổng publish ra máy local:
+
+  | Cổng | Thành phần | Dùng cho frontend |
+  | --- | --- | --- |
+  | `8333` | S3 API | URL public object: `http://localhost:8333/{bucket}/{key}`. Mở `/` trên trình duyệt ra XML `ListAllMyBucketsResult`, không phải dashboard. |
+  | `9333` | Master UI | Cluster/volume. Không quản lý quyền bucket. |
+  | `8888` | Filer UI | Duyệt thư mục/file. Không quản lý quyền bucket. |
+
+  Trong Docker, API gọi S3 qua `ObjectStorage__ServiceUrl=http://congthongtinf.seaweedfs:8333`. Trình duyệt trên host dùng `ObjectStorage__PublicUrl=http://localhost:8333/congthongtin`. Bucket mặc định `congthongtin`. Hạn mức `ObjectStorage__StorageQuotaBytes` (mặc định 10 GiB).
+
+  Quyền S3 nằm ở `deploy/seaweedfs/s3.json` (SeaweedFS đọc `-s3.config`), không nằm trong `appsettings` hay Compose env. Compose chỉ mount file đó. Identity `anonymous` có `Read` trên toàn bucket nên GET object không chữ ký được (ảnh news/banner). Identity `congthongtin` (access/secret trùng tên) có Admin/Read/Write/List cho API. `appsettings` / `ObjectStorage__*` chỉ là credential phía app.
+
+  Một bucket cho mọi loại file (`news/{userId}`, `banners`, `shared/{userId}`, tài liệu). File chia sẻ **không** trả URL public qua API; vẫn tải qua endpoint có JWT. Biết key thì vẫn GET được `:8333` vì anonymous Read. API tạo bucket `congthongtin` nếu chưa có khi client S3 được resolve lần đầu.
 
   ## Hệ thống
 
@@ -63,9 +81,9 @@
   - Document: lấy danh sách có phân trang, tải file (`downloadUrl`), admin upload và xóa tài liệu nội bộ
   - Banner: lấy danh sách (lọc theo vị trí và `isActive`), lấy chi tiết (public), tạo, sửa, xóa, đặt banner đang hiện theo vị trí (chỉ Admin ghi)
   - Leader: lấy danh sách, lấy chi tiết (public), tạo, sửa, xóa (chỉ Admin ghi)
-  - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng R2
+  - Admin: CRUD tài khoản (phân trang), dashboard thống kê, dung lượng kho lưu trữ
   - Shared file: user đăng nhập upload file, tạo/thu hồi link, xóa file của mình; user khác đã đăng nhập xem/tải bằng token
-  - Blob: endpoint test upload/xóa file Cloudflare R2
+  - Blob: endpoint test upload/xóa file trên SeaweedFS
   - System: seed / xóa dữ liệu local
 
   Tạo bài (`POST /api/news`) gán status `Published` ngay, không có bước duyệt. Chưa có API sửa tài liệu.
@@ -296,9 +314,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
 `total`, `active`.
 
-  ## Dung lượng R2
+  ## Dung lượng kho lưu trữ
 
-  `GET /api/admin/storage` — chỉ role `Admin`. Controller `R2StorageAnalyticsController`. Không có query. Server liệt kê object trong bucket R2 (`ListObjectsV2`) và cộng `Size` tại thời điểm gọi, rồi tính dung lượng còn lại theo `CloudflareR2:StorageQuotaBytes`. Bucket rỗng trả `usedBytes = 0`, `objectCount = 0`.
+  `GET /api/admin/storage` — chỉ role `Admin`. Controller `R2StorageAnalyticsController` (tên class/DTO cũ, route không đổi). Không có query. Server liệt kê object trong bucket SeaweedFS (`ListObjectsV2`) và cộng `Size` tại thời điểm gọi, rồi tính dung lượng còn lại theo `ObjectStorage:StorageQuotaBytes`. Bucket rỗng trả `usedBytes = 0`, `objectCount = 0`.
 
   Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
 
@@ -318,11 +336,11 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `usedPercent` | Phần trăm đã dùng, làm tròn 2 chữ số. Có thể lớn hơn 100 khi vượt hạn mức |
   | `measuredAt` | Thời điểm liệt kê, UTC |
 
-  Lỗi nghiệp vụ vẫn bọc `ApiResult`: thiếu tên bucket hoặc hạn mức → HTTP `500`. Bucket không tồn tại → HTTP `404`, message `Không tìm thấy bucket R2.` R2 từ chối hoặc lỗi khi liệt kê → HTTP `502`, message `Không liệt kê được object trong bucket R2.`
+  Lỗi nghiệp vụ vẫn bọc `ApiResult`: thiếu tên bucket hoặc hạn mức → HTTP `500` (`Chưa cấu hình tên bucket lưu trữ.` / `Hạn mức lưu trữ chưa được cấu hình.`). Bucket không tồn tại → HTTP `404`, message `Không tìm thấy bucket lưu trữ.` Kho lưu trữ từ chối hoặc lỗi khi liệt kê → HTTP `502`, message `Không liệt kê được object trong bucket lưu trữ.`
 
   ## Envelope `ApiResult<T>`
 
-  Mọi action auth, me, dashboard, storage R2, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
+  Mọi action auth, me, dashboard, storage, news, category, documents (trừ download file), admin users/banner, blobs, và nhánh thành công của system dùng class `ApiResult<T>` trong `congThongTinf.Service/Utils/ApiResult.cs`.
 
   Ngoại lệ: `GET /api/documents/{id}/download` trả **binary file**, không bọc `ApiResult`. Thành công thì body là bytes, header `Content-Disposition: attachment`.
 
@@ -544,7 +562,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   `POST /api/news` — cần token, role `Journalist`. `Content-Type: multipart/form-data`. Bài tạo ra có `authorId` là user trong token, status `Published` (`2`), `publishedAt` bằng `createdAt`. Không có bước gửi duyệt.
 
-  Ảnh bìa là file tải từ máy local. Server upload lên R2 (folder `news/{userId}`), lấy URL và lưu vào `coverImageUrl`. Client **không** gửi URL ảnh.
+  Ảnh bìa là file tải từ máy local. Server upload lên SeaweedFS (folder `news/{userId}`), lấy URL public S3 và lưu vào `coverImageUrl`. Client **không** gửi URL ảnh.
 
   | Field | Kiểu | Bắt buộc | Ghi chú |
   | --- | --- | --- | --- |
@@ -575,7 +593,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   </form>
   ```
 
-  Ví dụ `coverImageUrl` trong `NewsDto`: `https://<PublicUrl>/news/{userId}/{guid}.webp`.
+  Ví dụ `coverImageUrl` trong `NewsDto`: `http://localhost:8333/congthongtin/news/{userId}/{guid}.webp`.
 
   - File khai là ảnh nhưng không đọc được: HTTP `400`, `Image file is invalid.`
   - Cạnh ảnh lớn hơn 8192 px: HTTP `400`, `Image dimensions exceed 8192 pixels.`
@@ -592,7 +610,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ```json
   {
-    "url": "https://<PublicUrl>/news/{userId}/{guid}.webp"
+    "url": "http://localhost:8333/congthongtin/news/{userId}/{guid}.webp"
   }
   ```
 
@@ -614,7 +632,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `content` | string | Có | Không được chỉ có khoảng trắng |
   | `categoryId` | Guid | Có | Phải là Guid của category đang tồn tại |
   | `summary` | string | Không | Mặc định chuỗi rỗng |
-  | `coverImage` | file | Không | File ảnh, tối đa 10 MB. Có file thì chuyển WebP, upload lên R2 và thay `coverImageUrl`. Không gửi thì giữ ảnh bìa cũ. Client **không** gửi `coverImageUrl`. |
+  | `coverImage` | file | Không | File ảnh, tối đa 10 MB. Có file thì chuyển WebP, upload lên SeaweedFS và thay `coverImageUrl`. Không gửi thì giữ ảnh bìa cũ. Client **không** gửi `coverImageUrl`. |
 
   Thành công: HTTP `200`, `value.data` là `NewsDto` sau khi sửa.
 
@@ -668,7 +686,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Document
 
-  Tài liệu nội bộ sư đoàn. File lưu trên Cloudflare R2, metadata lưu bảng `Documents`. Giới hạn kích thước file **10 MB** (cùng rule với `BlobService`).
+  Tài liệu nội bộ sư đoàn. File lưu trên SeaweedFS, metadata lưu bảng `Documents`. Giới hạn kích thước file **10 MB** (cùng rule với `BlobService`).
 
   `DocumentCategory` là số:
 
@@ -706,7 +724,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "title": "Nội quy sư đoàn",
     "description": "",
-    "fileUrl": "https://<r2-public>/documents/ab12cd34.pdf",
+    "fileUrl": "http://localhost:8333/congthongtin/documents/ab12cd34.pdf",
     "downloadUrl": "http://localhost:5000/api/documents/3fa85f64-5717-4562-b3fc-2c963f66afa6/download",
     "fileName": "noi-quy.pdf",
     "fileType": "application/pdf",
@@ -731,7 +749,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `Content-Type` | `fileType` của tài liệu, ví dụ `application/pdf` |
   | `Content-Disposition` | `attachment; filename="noi-quy.pdf"` (tên gốc `fileName`) |
 
-  Body là bytes của file trên R2. Đây chính là URL trong `downloadUrl`.
+  Body là bytes của file trên SeaweedFS. Đây chính là URL trong `downloadUrl`.
 
   UI gắn `downloadUrl` vào nút. Click = điều hướng tới API, trình duyệt lưu file. Không `fetch`, không gắn JWT.
 
@@ -754,7 +772,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `fileUrl` | Xem inline (PDF mở tab mới). **Không** dùng cho nút download |
 
   - Id không tồn tại: HTTP `404`, envelope `Tài liệu với ID {id} không tồn tại.`
-  - Bản ghi còn, object R2 mất: HTTP `404`, envelope `File not found.`
+  - Bản ghi còn, object trên kho lưu trữ mất: HTTP `404`, envelope `File not found.`
   - CORS không áp dụng cho click thẻ `<a>` (top-level navigation).
 
   ### Upload
@@ -779,13 +797,13 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ### Xóa
 
-  `DELETE /api/documents/{id}` — token role `Admin`. Xóa cứng bản ghi và object R2 tương ứng `fileUrl`. Không khôi phục được.
+  `DELETE /api/documents/{id}` — token role `Admin`. Xóa cứng bản ghi và object SeaweedFS tương ứng `fileUrl`. Không khôi phục được.
 
   - Thành công: HTTP `200`, `value.data` là `true`, message `Xóa tài liệu nội bộ thành công.`
   - Id không tồn tại: HTTP `404`, `Tài liệu với ID {id} không tồn tại.`
   - Token không phải Admin: HTTP `403` (framework, không có envelope).
   - User trong token không còn trong DB hoặc bị khóa: HTTP `404`.
-  - Xóa bản ghi thành công nhưng object R2 lỗi: vẫn HTTP `200`. File mồ côi được ghi log, không trả lỗi cho client.
+  - Xóa bản ghi thành công nhưng xóa object lưu trữ lỗi: vẫn HTTP `200`. File mồ côi được ghi log, không trả lỗi cho client.
 
   Không có API sửa hoặc lấy chi tiết JSON theo id. Tải file dùng `GET /api/documents/{id}/download`.
 
@@ -795,7 +813,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | --- | --- |
   | `id` | Guid |
   | `title`, `description` | string |
-  | `fileUrl` | string, URL public R2 (xem file, PDF mở trên trình duyệt) |
+  | `fileUrl` | string, URL public S3 (xem file, PDF mở trên trình duyệt), dạng `http://localhost:8333/congthongtin/{key}` |
   | `downloadUrl` | string, ví dụ `http://localhost:5000/api/documents/{id}/download`. Gắn vào `href` của nút Tải xuống |
   | `fileName` | string, tên file gốc, dùng cho attribute `download` |
   | `fileType` | string, content type |
@@ -807,13 +825,13 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## File chia sẻ (Drive MVP)
 
-  File cá nhân của user đã đăng nhập. Khác `Document` (tài liệu nội bộ admin, public). Metadata lưu bảng `SharedFiles`, object lưu R2 folder `shared/{userId}`. Giới hạn **10 MB** (cùng `BlobService`). Ảnh vẫn bị chuyển WebP như các upload khác.
+  File cá nhân của user đã đăng nhập. Khác `Document` (tài liệu nội bộ admin, public). Metadata lưu bảng `SharedFiles`, object lưu SeaweedFS folder `shared/{userId}`. Giới hạn **10 MB** (cùng `BlobService`). Ảnh vẫn bị chuyển WebP như các upload khác.
 
   Mọi endpoint dưới đây cần JWT (Admin hoặc Journalist). Thiếu token: HTTP `401` (framework). Class gắn `[Authorize]`, không lọc role.
 
   Link chia sẻ là `shareToken` (32 ký tự hex). User khác đã đăng nhập gọi `GET /api/shared-files/links/{token}`. Token `null` = chưa chia sẻ hoặc đã thu hồi. Không hết hạn, không phân quyền xem/sửa, không folder.
 
-  Xem/tải file **không** trả `ApiResult`. Gắn JWT bằng header `Authorization` hoặc query `access_token` (cùng cơ chế hubs). **Không** trả URL public R2; không dùng `fileUrl` R2 để bypass đăng nhập.
+  Xem/tải file **không** trả `ApiResult`. Gắn JWT bằng header `Authorization` hoặc query `access_token` (cùng cơ chế hubs). **Không** trả URL public S3; không dùng URL `localhost:8333/...` để bypass đăng nhập trên UI.
 
   ### Danh sách file của tôi
 
@@ -874,7 +892,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ### Xóa file
 
-  `DELETE /api/shared-files/{id}` — chủ file. Xóa bản ghi `SharedFiles` rồi object R2 (`FileKey`). Token chia sẻ (nếu có) hết hiệu lực.
+  `DELETE /api/shared-files/{id}` — chủ file. Xóa bản ghi `SharedFiles` rồi object SeaweedFS (`FileKey`). Token chia sẻ (nếu có) hết hiệu lực.
 
   Thành công: HTTP `200`, `value.data` = `true`, message `Xóa file thành công.`
 
@@ -1051,7 +1069,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   ## Banner
 
-  Ảnh banner gắn vào **slot cố định trên layout**. File lưu R2 folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
+  Ảnh banner gắn vào **slot cố định trên layout**. File lưu SeaweedFS folder `banners`, metadata bảng `Banners`. Mọi endpoint dưới `BannerController`, route `api/admin/banners`. Class không gắn `[Authorize]`. `GET` public. `POST`, `PUT`, `DELETE` gắn `[Authorize(Roles = "Admin")]` trên từng action.
 
   Không còn `displayOrder`. Vị trí là enum `BannerPosition` (số):
 
@@ -1067,21 +1085,21 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | Method | Path | Thành công |
   | --- | --- | --- |
   | GET | `/api/admin/banners` | Danh sách phân trang |
-  | GET | `/api/admin/banners/files` | Ảnh trong folder R2 `banners/`, chỉ Admin |
+  | GET | `/api/admin/banners/files` | Ảnh trong folder SeaweedFS `banners/`, chỉ Admin |
   | GET | `/api/admin/banners/{id}` | Chi tiết |
   | POST | `/api/admin/banners` | Tạo mới, `multipart/form-data` |
   | PUT | `/api/admin/banners/{id}` | Sửa, `multipart/form-data` |
   | PUT | `/api/admin/banners/{id}/active` | Đặt banner này là banner đang hiện của **cùng vị trí** |
-  | DELETE | `/api/admin/banners/{id}` | Xóa bản ghi và file trên R2 |
+  | DELETE | `/api/admin/banners/{id}` | Xóa bản ghi và file trên SeaweedFS |
 
   `GET /api/admin/banners` — public, không cần token.
 
-  `GET /api/admin/banners/files` — cần token, role `Admin`. Liệt kê file ảnh trong folder R2 `banners/` (cùng nơi `POST /api/admin/banners` upload), không đọc bảng `Banners`. Thiếu token: HTTP `401`. Không phải Admin: HTTP `403`. R2 lỗi khi liệt kê: HTTP `502`, `Không liệt kê được ảnh trong folder R2.` Thành công: HTTP `200`, message `Lấy danh sách ảnh banner thành công.` `value.data` là mảng, mới nhất trước:
+  `GET /api/admin/banners/files` — cần token, role `Admin`. Liệt kê file ảnh trong folder SeaweedFS `banners/` (cùng nơi `POST /api/admin/banners` upload), không đọc bảng `Banners`. Thiếu token: HTTP `401`. Không phải Admin: HTTP `403`. Lỗi khi liệt kê kho lưu trữ: HTTP `502`, `Không liệt kê được ảnh trong folder lưu trữ.` Thành công: HTTP `200`, message `Lấy danh sách ảnh banner thành công.` `value.data` là mảng, mới nhất trước:
 
   | Field | Ý nghĩa |
   | --- | --- |
   | `key` | Object key, dạng `banners/{file}.webp` |
-  | `url` | URL public, cùng host với `https://pub-....r2.dev/banners/...` |
+  | `url` | URL public S3, dạng `http://localhost:8333/congthongtin/banners/{file}.webp` |
   | `size` | Bytes |
   | `lastModified` | UTC, hoặc `null` |
 
@@ -1118,7 +1136,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   Upload tạo bản ghi mới. Không gửi `displayOrder`.
 
-  `PUT /api/admin/banners/{id}` — cần token, role `Admin`. `multipart/form-data`. Field bỏ trống thì giữ giá trị cũ. Gửi `file` thì thay ảnh và xóa file cũ trên R2. Sau khi sửa, nếu banner `isActive = true` thì exclusive theo `position` hiện tại (kể cả khi vừa đổi vị trí). Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
+  `PUT /api/admin/banners/{id}` — cần token, role `Admin`. `multipart/form-data`. Field bỏ trống thì giữ giá trị cũ. Gửi `file` thì thay ảnh và xóa file cũ trên SeaweedFS. Sau khi sửa, nếu banner `isActive = true` thì exclusive theo `position` hiện tại (kể cả khi vừa đổi vị trí). Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework).
 
   | Field | Bắt buộc | Ghi chú |
   | --- | --- | --- |
@@ -1132,7 +1150,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   `PUT /api/admin/banners/{id}/active` — cần token, role `Admin`. Không body. Đặt `isActive = true` cho `{id}` và `isActive = false` cho banner khác **cùng `position`**. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`, `Banner với ID {id} không tồn tại.` Thành công: HTTP `200`, `value.data` là `BannerDto` vừa được bật, message `Đặt banner hiển thị cho vị trí thành công.`
 
-  `DELETE /api/admin/banners/{id}` — cần token, role `Admin`. Xóa hàng trong DB rồi xóa file R2. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `true`, message `Xóa banner thành công.`
+  `DELETE /api/admin/banners/{id}` — cần token, role `Admin`. Xóa hàng trong DB rồi xóa file SeaweedFS. Thiếu token: HTTP `401` (framework). Không phải Admin: HTTP `403` (framework). Không tồn tại: HTTP `404`. Thành công: HTTP `200`, `value.data` là `true`, message `Xóa banner thành công.`
 
   ### BannerDto
 
@@ -1150,9 +1168,9 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   | `uploadedByUserId` | Guid |
   | `createdAt` | datetime UTC |
 
-  ## Blob (test R2)
+  ## Blob (test object storage)
 
-  Endpoint thử Cloudflare R2. **Không** có `[Authorize]`. Không nên đưa vào UI người dùng.
+  Endpoint thử SeaweedFS qua `IBlobService`. **Không** có `[Authorize]`. Không nên đưa vào UI người dùng.
 
   `POST /api/blobs/upload` — `multipart/form-data`.
 
@@ -1165,7 +1183,7 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
 
   | Field | Kiểu |
   | --- | --- |
-  | `key` | string, object key trên R2 |
+  | `key` | string, object key trên SeaweedFS |
   | `url` | string, URL public |
   | `size` | number |
   | `contentType` | string |
@@ -1210,5 +1228,5 @@ Thành công mỗi endpoint: HTTP `200`, envelope `ApiResult`, `value.data` là 
   - Nút tải tài liệu nội bộ: `<a href="@item.DownloadUrl" download="@item.FileName">Tải xuống</a>`. Không dùng `fileUrl` cho nút download. Không `fetch` endpoint download.
   - File chia sẻ: không public. `fetch` `viewUrl`/`downloadUrl` kèm JWT hoặc thêm `?access_token=`. Người nhận dùng `shareToken` gọi `GET /api/shared-files/links/{token}`. Thu hồi bằng `DELETE /api/shared-files/{id}/share`. Xóa file của mình: `DELETE /api/shared-files/{id}`.
   - `GET /api/me/role` trả `role` dạng chuỗi khi cần label đúng với claim.
-  - Ẩn dashboard (`GET /api/dashboard`), dung lượng R2 (`GET /api/admin/storage`), bài theo tác giả (`GET /api/admin/news`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`.
+  - Ẩn dashboard (`GET /api/dashboard`), dung lượng kho lưu trữ (`GET /api/admin/storage`), bài theo tác giả (`GET /api/admin/news`), tạo phóng viên, quản lý user (`/api/admin/users`), tạo/sửa/xóa banner (`POST`/`PUT`/`DELETE` `/api/admin/banners`) và đặt banner theo vị trí (`PUT /api/admin/banners/{id}/active`), tạo/sửa/xóa thủ trưởng (`POST`/`PUT`/`DELETE` `/api/leaders`), upload tài liệu, và gọi `check-admin` khi role không phải `Admin`. Layout gọi `GET /api/admin/banners?position=0&isActive=true&pageIndex=0` (Header). Dải giữa trang chủ: `position=1`. Không cần token. Banner đang hiện của slot là `items[0]`. `linkUrl` khác null thì dùng làm `href`. Dải Ban Chỉ huy gọi `GET /api/leaders` (public), sắp sẵn theo `displayOrder`. Ảnh banner/news dùng URL public S3 (`coverImageUrl` / `imageUrl`) trỏ `localhost:8333`. File chia sẻ không dùng URL đó.
   - Coi `/api/system/*` và `/api/blobs/*` là công cụ local/test, không đưa vào UI người dùng.
