@@ -7,6 +7,23 @@
   OpenAPI: `http://localhost:5000/swagger/v1/swagger.json`  
   Docker Compose publish API ra cổng `5000` (container lắng nghe `8080`).
 
+  ## Docker image backend
+
+  Backend được build tự động từ `congThongTinf.API/Dockerfile` và push lên Docker Hub mỗi khi có commit được push vào nhánh `main`.
+
+  - Repository: `phuctran362003/congthongtinf.api`
+  - `phuctran362003/congthongtinf.api:latest`: bản mới nhất trên nhánh `main`
+  - `phuctran362003/congthongtinf.api:<git-commit-sha>`: bản cố định theo commit, nên dùng khi cần triển khai có thể tái lập hoặc rollback
+  - Repository hiện là private; máy triển khai cần đăng nhập Docker Hub bằng token có quyền đọc trước khi pull
+  - Container lắng nghe HTTP ở cổng `8080`
+
+  ```bash
+  docker login
+  docker pull phuctran362003/congthongtinf.api:latest
+  ```
+
+  Khi frontend chạy trực tiếp trên máy local, dùng API URL `http://localhost:5000`. Khi frontend và backend chạy trong cùng Docker network, không dùng `localhost` từ container frontend; dùng tên service backend và cổng container, ví dụ `http://congthongtinf.api:8080`. Các biến môi trường của backend như PostgreSQL, JWT và Cloudflare R2 vẫn phải được cấu hình bởi môi trường triển khai.
+
   Mọi request/response JSON dùng `Content-Type: application/json`. ASP.NET Core serialize property theo **camelCase**.
 
   Ngoại lệ: tạo/sửa bài báo và upload file dùng `multipart/form-data` (`POST /api/news`, `PUT /api/news/{id}`, `POST /api/news/images`, `POST /api/admin/banners`, `PUT /api/admin/banners/{id}`, `POST /api/documents`, `POST /api/shared-files`, `POST /api/blobs/upload`). Tên field form bind không phân biệt hoa thường (`file`, `title`, `coverImage`, …).
