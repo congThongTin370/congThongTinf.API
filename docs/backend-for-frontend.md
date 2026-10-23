@@ -5,7 +5,21 @@
   Base URL local: `http://localhost:5000`  
   Swagger UI: `http://localhost:5000/`  
   OpenAPI: `http://localhost:5000/swagger/v1/swagger.json`  
-  Docker Compose publish API ra cổng `5000` (container lắng nghe `8080`).
+  Docker Compose publish API ra cổng `5000` (container lắng nghe `8080`). Local development chạy hai stack riêng (cùng Docker network `congthongtinf`):
+
+  ```bash
+  .\up.bat
+  ```
+
+  Hoặc:
+
+  ```bash
+  docker network create congthongtinf
+  docker compose -f compose.storage.yml up -d --wait
+  docker compose -f compose.yml up -d --build --remove-orphans
+  ```
+
+  Stack `congthongtinf` (`compose.yml`): API + PostgreSQL. Stack `congthongtinf-storage` (`compose.storage.yml`): SeaweedFS. API gọi S3 qua `http://congthongtinf.seaweedfs:8333` trên network chung. Không dùng `-f compose.yml -f compose.storage.yml` vì Compose sẽ gộp lại thành một project.
 
   ## Docker image backend
 
@@ -34,7 +48,7 @@
 
   File không còn lưu Cloudflare R2. `IBlobService` vẫn dùng AWS SDK S3, trỏ tới SeaweedFS self-hosted (API S3-compatible). Abstraction upload/download/xóa/list không đổi.
 
-  Docker Compose service `congthongtinf.seaweedfs` (`chrislusf/seaweedfs:3.97`, `weed server -s3`). Cổng publish ra máy local:
+  Service `congthongtinf.seaweedfs` nằm trong `compose.storage.yml` (`chrislusf/seaweedfs:3.97`, `weed server -s3`). Cổng publish ra máy local:
 
   | Cổng | Thành phần | Dùng cho frontend |
   | --- | --- | --- |
@@ -44,7 +58,7 @@
 
   Trong Docker, API gọi S3 qua `ObjectStorage__ServiceUrl=http://congthongtinf.seaweedfs:8333`. Trình duyệt trên host dùng `ObjectStorage__PublicUrl=http://localhost:8333/congthongtin`. Bucket mặc định `congthongtin`. Hạn mức `ObjectStorage__StorageQuotaBytes` (mặc định 10 GiB).
 
-  Quyền S3 nằm ở `deploy/seaweedfs/s3.json` (SeaweedFS đọc `-s3.config`), không nằm trong `appsettings` hay Compose env. Compose chỉ mount file đó. Identity `anonymous` có `Read` trên toàn bucket nên GET object không chữ ký được (ảnh news/banner). Identity `congthongtin` (access/secret trùng tên) có Admin/Read/Write/List cho API. `appsettings` / `ObjectStorage__*` chỉ là credential phía app.
+  Quyền S3 nằm ở `deploy/seaweedfs/s3.json` (SeaweedFS đọc `-s3.config`), không nằm trong `appsettings` hay Compose env. `compose.storage.yml` chỉ mount file đó. Identity `anonymous` có `Read` trên toàn bucket nên GET object không chữ ký được (ảnh news/banner). Identity `congthongtin` (access/secret trùng tên) có Admin/Read/Write/List cho API. `appsettings` / `ObjectStorage__*` chỉ là credential phía app.
 
   Một bucket cho mọi loại file (`news/{userId}`, `banners`, `shared/{userId}`, tài liệu). File chia sẻ **không** trả URL public qua API; vẫn tải qua endpoint có JWT. Biết key thì vẫn GET được `:8333` vì anonymous Read. API tạo bucket `congthongtin` nếu chưa có khi client S3 được resolve lần đầu.
 

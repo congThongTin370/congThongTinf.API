@@ -222,6 +222,7 @@ public static class IocContainer
         services.AddScoped<ILeaderService, LeaderService>();
         services.AddScoped<ISharedFileService, SharedFileService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ISystemService, SystemService>();
         services.AddScoped<IClaimsService, ClaimsService>();
 
         services.AddHttpContextAccessor();

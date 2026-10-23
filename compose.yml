@@ -1,3 +1,5 @@
+name: congthongtinf
+
 services:
   congthongtinf.api:
     image: ${DOCKER_REGISTRY-}congthongtinfapi
@@ -7,15 +9,13 @@ services:
     depends_on:
       congthongtinf.database:
         condition: service_healthy
-      congthongtinf.seaweedfs:
-        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
 
       # PostgreSQL
       - ConnectionStrings__DefaultConnection=Host=congthongtinf.database;Port=5432;Database=CongThongTinfDB;Username=postgres;Password=postgres;Timeout=300;CommandTimeout=300
 
-      # SeaweedFS (S3-compatible)
+      # SeaweedFS (S3-compatible) — service lives in the congthongtinf-storage stack
       - ObjectStorage__ServiceUrl=http://congthongtinf.seaweedfs:8333
       - ObjectStorage__BucketName=congthongtin
       - ObjectStorage__PublicUrl=http://localhost:8333/congthongtin
@@ -23,10 +23,16 @@ services:
       - ObjectStorage__SecretKey=congthongtin_secret
       - ObjectStorage__Region=us-east-1
       - ObjectStorage__StorageQuotaBytes=10737418240
+      - Seed__ImageRoot=/app/seed/images
+
+    volumes:
+      - ./seed/images:/app/seed/images:ro
 
     ports:
       - "5000:8080"
       - "5001:8081"
+    networks:
+      - congthongtinf
 
   congthongtinf.database:
     image: postgres:17
@@ -44,24 +50,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - congthongtinf
 
-  congthongtinf.seaweedfs:
-    image: chrislusf/seaweedfs:3.97
-    restart: always
-    command: 'server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json'
-    ports:
-      - "8333:8333"
-      - "9333:9333"
-      - "8888:8888"
-    volumes:
-      - seaweeddata:/data
-      - ./deploy/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+networks:
+  congthongtinf:
+    name: congthongtinf
+    external: true
 
 volumes:
   pgdata:
-  seaweeddata:
+    name: congthongtinf_pgdata

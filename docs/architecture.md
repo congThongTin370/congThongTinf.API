@@ -31,11 +31,16 @@ architecture# Architecture
 
 ## Infrastructure
 
-Docker Compose runs:
+Docker Compose runs two stacks on the shared network `congthongtinf`:
 
-- API
-- PostgreSQL
-- Redis
+- `congthongtinf` (`compose.yml`): API, PostgreSQL
+- `congthongtinf-storage` (`compose.storage.yml`): SeaweedFS
+
+Local development:
+
+```bash
+.\up.bat
+```
 
 ## Authentication
 
